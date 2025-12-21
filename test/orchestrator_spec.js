@@ -302,4 +302,64 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
             });
         });
     });
+
+    it('should tolerate trailing commas in reflection JSON and continue', function (done) {
+        const flow = [
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [['orch1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'helper1', type: 'helper' }
+        ];
+
+        // Planning
+        axiosPostStub.onCall(0).resolves({
+            data: {
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            tasks: [{ id: 't1', type: 'work', input: 'task 1', status: 'pending' }]
+                        })
+                    }
+                }]
+            }
+        });
+
+        // Task execution
+        axiosPostStub.onCall(1).resolves({
+            data: { choices: [{ message: { content: 'ok' } }] }
+        });
+
+        // Reflection response with a trailing comma (invalid strict JSON)
+        axiosPostStub.onCall(2).resolves({
+            data: {
+                choices: [{
+                    message: {
+                        content: '{\n' +
+                            '  "analysis": "done",\n' +
+                            '  "status": "completed",\n' +
+                            '}\n'
+                    }
+                }]
+            }
+        });
+
+        helper.load([orchestratorNode, agentOrchestratorNode], flow, function () {
+            const agent1 = helper.getNode('agent1');
+            const helper1 = helper.getNode('helper1');
+
+            helper1.on('input', function (msg) {
+                try {
+                    msg.orchestration.status.should.equal('completed');
+                    msg.payload.should.equal('ok');
+                    done();
+                } catch (err) {
+                    done(err);
+                }
+            });
+
+            agent1.receive({
+                payload: 'Trailing comma reflection',
+                aiagent: { apiKey: 'test-key', model: 'test-model' }
+            });
+        });
+    });
 });

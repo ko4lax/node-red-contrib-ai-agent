@@ -216,6 +216,14 @@ Example:
             const response = await callAI(node, msg.aiagent, prompt, "You are an AI Orchestrator that creates non-linear plans with dependencies.");
             debugLog(node, 'Planning Response', response);
             const planData = parseJsonResponse(response);
+
+            if (!planData || typeof planData !== 'object') {
+                throw new Error('Planning response was not valid JSON.');
+            }
+            if (!Array.isArray(planData.tasks)) {
+                throw new Error('Planning response must include a tasks array.');
+            }
+
             msg.orchestration.plan = planData;
             msg.orchestration.status = 'executing';
         } catch (error) {
@@ -302,6 +310,10 @@ Return a JSON object:
         try {
             const response = await callAI(node, msg.aiagent, prompt, "You are an AI Orchestrator that reflects on progress and manages plan revisions.");
             const reflection = parseJsonResponse(response);
+
+            if (!reflection || typeof reflection !== 'object') {
+                throw new Error('Reflection response was not valid JSON.');
+            }
 
             msg.orchestration.status = reflection.status;
             if (reflection.updatedPlan) {
@@ -425,23 +437,89 @@ Return a JSON object:
      * @returns {string} The extracted JSON string
      */
     function extractJson(text) {
+        if (typeof text !== 'string') return '';
+
+        // Prefer a balanced-brace extraction to avoid greedy matching issues.
+        const extracted = extractBalancedJsonObject(text);
+        if (extracted) return extracted;
+
+        // Fallback to a simple greedy match if needed.
         const match = text.match(/\{[\s\S]*\}/);
         return match ? match[0] : text;
     }
 
     /**
+     * Extract the first balanced JSON object (starting at the first '{') from arbitrary text.
+     * @param {string} text - The input text
+     * @returns {string} Extracted JSON object text or empty string if not found
+     */
+    function extractBalancedJsonObject(text) {
+        const start = text.indexOf('{');
+        if (start === -1) return '';
+
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+
+        for (let i = start; i < text.length; i++) {
+            const ch = text[i];
+
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                if (ch === '\\') {
+                    escape = true;
+                    continue;
+                }
+                if (ch === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (ch === '"') {
+                inString = true;
+                escape = false;
+                continue;
+            }
+
+            if (ch === '{') {
+                depth++;
+                continue;
+            }
+
+            if (ch === '}') {
+                depth--;
+                if (depth === 0) {
+                    return text.slice(start, i + 1);
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Parses a JSON object from an AI response, tolerating common non-JSON wrappers.
+     * Returns an empty string if parsing fails after sanitization attempts.
      * @param {string} text - The AI response
-     * @returns {any} Parsed JSON
+     * @returns {any|string} Parsed JSON or empty string on failure
      */
     function parseJsonResponse(text) {
         const extracted = extractJson(text);
         try {
             return JSON.parse(extracted);
-        } catch (_err) {
+        } catch (err1) {
             const sanitized = sanitizeJsonLikeText(extracted);
-            return JSON.parse(sanitized);
+            try {
+                return JSON.parse(sanitized);
+            } catch (err2) {
+                // no need to catch anything, default to empty string
+            }
         }
+        return "";
     }
 
     /**
@@ -528,7 +606,62 @@ Return a JSON object:
             out += ch;
         }
 
-        return out.trim();
+        return removeTrailingCommas(out).trim();
+    }
+
+    /**
+     * Removes trailing commas before closing braces/brackets outside of string literals.
+     * Example: {"a":1,} -> {"a":1}
+     * @param {string} input - JSON-like string
+     * @returns {string}
+     */
+    function removeTrailingCommas(input) {
+        if (typeof input !== 'string') return '';
+
+        let out = '';
+        let inString = false;
+        let escape = false;
+
+        for (let i = 0; i < input.length; i++) {
+            const ch = input[i];
+
+            if (inString) {
+                out += ch;
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                if (ch === '\\') {
+                    escape = true;
+                    continue;
+                }
+                if (ch === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (ch === '"') {
+                out += ch;
+                inString = true;
+                escape = false;
+                continue;
+            }
+
+            if (ch === ',') {
+                // Look ahead for the next non-whitespace character.
+                let j = i + 1;
+                while (j < input.length && /\s/.test(input[j])) j++;
+                const nextNonWs = j < input.length ? input[j] : '';
+                if (nextNonWs === '}' || nextNonWs === ']') {
+                    continue;
+                }
+            }
+
+            out += ch;
+        }
+
+        return out;
     }
 
     function debugLog(node, label, payload) {
