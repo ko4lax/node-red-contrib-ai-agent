@@ -1,6 +1,6 @@
 {
     "name": "node-red-contrib-ai-agent",
-    "version": "0.5.2",
+    "version": "0.5.4",
     "description": "AI Agent for Node-RED",
     "repository": {
         "type": "git",
