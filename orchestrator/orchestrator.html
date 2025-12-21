@@ -72,5 +72,11 @@
 
     <h3>Details</h3>
     <p>Connect this node to one or more AI agents. The first output should flow into an agent, and the agent's output should loop back to this node's input.</p>
+    <p>The orchestrator supports advanced planning features in "Advanced" mode:</p>
+    <ul>
+        <li><strong>Dependencies:</strong> Tasks can wait for other tasks to complete (<code>dependsOn</code> array).</li>
+        <li><strong>Priorities:</strong> Tasks with higher <code>priority</code> numbers are executed first.</li>
+        <li><strong>Error Recovery:</strong> If a task fails, the orchestrator reflects on the error and can revise the plan to retry or try an alternative approach.</li>
+    </ul>
     <p>When the goal is achieved or max iterations are reached, the final message is sent to the second output.</p>
 </script>

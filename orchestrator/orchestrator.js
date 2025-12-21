@@ -48,7 +48,7 @@ module.exports = function (RED) {
                 // Logic based on current status
                 if (msg.orchestration.status === 'planning' || !msg.orchestration.plan) {
                     await createInitialPlan(node, msg);
-                } else {
+                } else if (msg.orchestration.currentTaskId) {
                     await reflectAndRefine(node, msg);
                 }
 
@@ -82,23 +82,31 @@ module.exports = function (RED) {
 
     async function createInitialPlan(node, msg) {
         const goal = msg.orchestration.goal;
-        const prompt = `Goal: ${goal}\n\nDecompose this goal into a series of tasks for AI agents. 
-Return a JSON object with a "tasks" array. Each task should have:
-- "id": a short string id
-- "type": the type of task
-- "input": what the agent should do
-- "status": "pending"
+        const strategy = node.planningStrategy;
 
-Example:
+        let prompt = `Goal: ${goal}\n\nDecompose this goal into a series of tasks for AI agents. 
+Return a JSON object with a "tasks" array. Each task should have:
+- "id": a short string id (e.g., "t1", "t2")
+- "type": the type of task (e.g., "research", "code", "review")
+- "input": detailed instruction for the agent
+- "status": "pending"
+- "priority": a number (1-10, default 5)
+- "dependsOn": an array of IDs of tasks that must be completed BEFORE this task can start (empty array if none)`;
+
+        if (strategy === 'advanced') {
+            prompt += `\n\nThink about parallel execution. Group related tasks and identify bottlenecks. Ensure dependencies are logical.`;
+        }
+
+        prompt += `\n\nExample:
 {
   "tasks": [
-    {"id": "t1", "type": "research", "input": "Find information about X", "status": "pending"},
-    {"id": "t2", "type": "summary", "input": "Summarize the findings", "status": "pending"}
+    {"id": "t1", "type": "research", "input": "...", "status": "pending", "priority": 10, "dependsOn": []},
+    {"id": "t2", "type": "implementation", "input": "...", "status": "pending", "priority": 5, "dependsOn": ["t1"]}
   ]
 }`;
 
         try {
-            const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that creates plans.");
+            const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that creates non-linear plans with dependencies.");
             const planData = JSON.parse(extractJson(response));
             msg.orchestration.plan = planData;
             msg.orchestration.status = 'executing';
@@ -110,35 +118,47 @@ Example:
     async function reflectAndRefine(node, msg) {
         const currentTaskId = msg.orchestration.currentTaskId;
         const taskResult = msg.payload;
+        const isError = msg.error ? true : false;
 
         // Update history
         msg.orchestration.history.push({
             taskId: currentTaskId,
             result: taskResult,
+            error: msg.error,
             timestamp: new Date().toISOString()
         });
 
         // Update task status in plan
         const task = msg.orchestration.plan.tasks.find(t => t.id === currentTaskId);
         if (task) {
-            task.status = 'completed';
-            task.output = taskResult;
+            if (isError) {
+                task.status = 'failed';
+                task.error = msg.error;
+            } else {
+                task.status = 'completed';
+                task.output = taskResult;
+            }
         }
 
         const prompt = `Current Goal: ${msg.orchestration.goal}
 Current Plan: ${JSON.stringify(msg.orchestration.plan)}
-Last Task Result: ${JSON.stringify(taskResult)}
+Last Task ID: ${currentTaskId}
+Last Task ${isError ? 'Error' : 'Result'}: ${JSON.stringify(isError ? msg.error : taskResult)}
 
-Evaluate the progress. Should we continue with the current plan, refine it, or is the goal achieved?
+Evaluate the progress. 
+1. If the last task failed, propose a recovery strategy (retry, alternative task, or fail the goal).
+2. If the goal is achieved, set status to "completed".
+3. Otherwise, continue execution. You may refine the plan by adding, removing, or modifying tasks.
+
 Return a JSON object:
 {
-  "analysis": "string evaluation",
+  "analysis": "detailed evaluation of progress and next steps",
   "status": "executing" | "completed" | "failed",
-  "updatedPlan": { ... same structure as plan ... }
+  "updatedPlan": { "tasks": [...] }
 }`;
 
         try {
-            const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that reflects on progress.");
+            const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that reflects on progress and manages plan revisions.");
             const reflection = JSON.parse(extractJson(response));
 
             msg.orchestration.status = reflection.status;
@@ -146,14 +166,37 @@ Return a JSON object:
                 msg.orchestration.plan = reflection.updatedPlan;
             }
         } catch (error) {
-            node.warn(`Reflection failed, continuing with current plan: ${error.message}`);
-            // Fallback: just move to next task if possible
+            node.warn(`Reflection failed, continuing with current plan state: ${error.message}`);
+            // Fallback: stay in executing status if it was executing, let getNextTask decide
         }
     }
 
     function getNextTask(plan) {
         if (!plan || !plan.tasks) return null;
-        return plan.tasks.find(t => t.status === 'pending');
+
+        // Find tasks that are pending AND all their dependencies are completed
+        const eligibleTasks = plan.tasks.filter(t => {
+            if (t.status !== 'pending') return false;
+
+            if (!t.dependsOn || t.dependsOn.length === 0) return true;
+
+            return t.dependsOn.every(depId => {
+                const depTask = plan.tasks.find(pt => pt.id === depId);
+                return depTask && depTask.status === 'completed';
+            });
+        });
+
+        if (eligibleTasks.length === 0) return null;
+
+        // Sort by priority (descending) then by ID
+        eligibleTasks.sort((a, b) => {
+            const priorityA = a.priority || 5;
+            const priorityB = b.priority || 5;
+            if (priorityB !== priorityA) return priorityB - priorityA;
+            return a.id.localeCompare(b.id);
+        });
+
+        return eligibleTasks[0];
     }
 
     async function callAI(aiConfig, prompt, systemPrompt) {

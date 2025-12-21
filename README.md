@@ -93,9 +93,15 @@ Configures the AI model and API settings.
 ### AI Orchestrator
 Coordinates multiple AI agents by creating and executing plans. It uses an autonomy loop (observe-think-act-reflect) to achieve complex goals.
 
+**Key Features:**
+- **Non-linear Planning**: Supports task dependencies (tasks wait for their predecessors).
+- **Task Prioritization**: Executes higher priority tasks first within dependency constraints.
+- **Dynamic Plan Revision**: Refines the plan based on task outcomes and agent feedback.
+- **Error Recovery**: Automatically handles task failures with recovery strategies (retry, pivot, or fail).
+
 **Properties:**
 - **Max Iterations**: Maximum cycles for the autonomy loop
-- **Planning Strategy**: Simple (linear) or Advanced
+- **Planning Strategy**: Simple (linear) or Advanced (dependency-aware)
 - **Default Goal**: Optional fallback goal
 - **Name**: Display name for the node
 
@@ -179,7 +185,7 @@ The AI Orchestrator can manage complex, multi-step tasks:
 4. Connect the orchestrator's second output to a **Debug** node
 5. Configure the orchestrator with a goal (e.g., "Write a blog post and then translate it to Spanish")
 
-The orchestrator will create a plan, dispatch the first task to the agent, reflect on the result, and then dispatch the next task until completion.
+The orchestrator will create a plan (optionally with dependencies and priorities), dispatch the first available task to the agent, reflect on the result, and then dispatch the next task until completion. If a task fails, it can revise the plan to recover.
 
 ## Best Practices
 

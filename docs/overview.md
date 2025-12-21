@@ -151,9 +151,9 @@ flowchart LR
 
 4. **AI Orchestrator Processing**
    - Receives the message with `msg.aiagent`, `msg.aimemory`, and `msg.tools`.
-   - **Planning**: If no plan exists, uses AI to decompose the goal into tasks.
-   - **Dispatching**: Sends the next pending task to output 1.
-   - **Reflection**: If a task result is returned, evaluates it and updates the plan.
+   - **Planning**: If no plan exists, uses AI to decompose the goal into tasks. Supports non-linear plans with `dependsOn` constraints and `priority` values.
+   - **Dispatching**: Identifies all eligible tasks (those with all dependencies met) and sends the highest priority one to output 1.
+   - **Reflection**: If a task result is returned, evaluates progress. Supports error detection; if `msg.error` is present, the orchestrator reflects on the failure and proposes recovery tasks.
    - **Looping**: Directs the flow back to AI agents until the goal is met or max iterations reached.
    - **Output**: Sends the final orchestration result to output 2.
 

@@ -15,34 +15,35 @@
 | **Memory** | Comprehensive: Conversation history, vector-based long-term storage, and auto-consolidation/summarization | Built-in conversation memory and vector database integrations |
 | **Tool Integration** | HTTP, JS functions, Node-RED nodes | Any n8n node can be a tool |
 | **Agent Types** | Single agent type (extensible) | Multiple types (Tools Agent, Conversational Agent, etc.) |
-| **Planning** | Advanced (Autonomous AI Orchestrator with Think-Act-Reflect loop) | Advanced planning with ReAct framework |
+| **Planning** | Advanced (Autonomous AI Orchestrator with Think-Act-Reflect loop, non-linear plans, dependencies, and priorities) | Advanced planning with ReAct framework |
 
 ## Development State
 | Aspect | Node-RED AI Agent | n8n Agent Node |
 |--------|-------------------|----------------|
-| **Maturity** | Early stage with active development | More mature, production-ready |
-| **Documentation** | Basic documentation | Comprehensive documentation |
-| **Community** | Growing community | Larger, established community |
+| **Maturity** | Rapidly evolving; powerful orchestration in v0.2.0 | Mature, production-ready |
+| **Documentation** | Comprehensive (Overview, README, Proposals) | Industry standard |
+| **Community** | Growing community | Large, establish community |
 
 ## Strengths
 ### Node-RED AI Agent
-- Tight Node-RED integration
+- Tight Node-RED integration (native message passing)
 - Flexible message-based architecture
 - Advanced Memory System (Vector + Consolidation)
-- Easy to extend with custom tools
+- **Advanced Orchestration**: Non-linear planning with task dependencies and priorities
+- Easy to extend with custom tool nodes
 - Lightweight and focused
 
 ### n8n Agent Node
 - Mature implementation
 - Wide range of built-in integrations
-- Advanced agent capabilities (ReAct, planning)
+- Advanced agent capabilities (ReAct, LangChain ecosystem)
 - Strong enterprise support
 
 ## Recommendations
-1. **For Node-RED users**: The Node-RED AI Agent provides better integration with existing Node-RED workflows and a more familiar development model.
-2. **For advanced AI features**: n8n's Agent Node offers more mature AI capabilities out of the box.
-3. **For extensibility**: Both allow custom tool creation, but n8n has a larger ecosystem of pre-built nodes.
-4. **For enterprise use**: n8n might be more suitable due to its maturity and support options.
+1. **For Node-RED users**: The Node-RED AI Agent provides better integration with existing Node-RED workflows and a more familiar development model. It is now a viable choice for complex autonomous tasks.
+2. **For LangChain enthusiasts**: n8n's Agent Node offers direct access to the LangChain ecosystem.
+3. **For extensibility**: Both allow custom tool creation; Node-RED's approach is more "bottom-up" (any node can eventually be a tool), while n8n is "top-down".
+4. **For enterprise use**: n8n might be more suitable due to its maturity, although the Node-RED AI Agent is rapidly closing the gap in orchestration capabilities.
 
 ## Conclusion
-Both solutions have their strengths depending on the use case. The Node-RED AI Agent is ideal for those already invested in the Node-RED ecosystem, while n8n's solution offers more advanced features and maturity for those who can work within its ecosystem.
+With the release of v0.2.0, the Node-RED AI Agent has reached feature parity with many advanced orchestration frameworks, offering a unique blend of Node-RED's flexibility and powerful AI agency. It is the ideal choice for developers looking to build complex, self-reflecting AI loops directly within their Node-RED flows.
