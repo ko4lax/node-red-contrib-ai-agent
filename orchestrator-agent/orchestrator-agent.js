@@ -91,6 +91,19 @@ function formatToolsForAPI(tools) {
 }
 
 /**
+ * Helper for conditional debug logging
+ */
+function debugLog(node, label, payload) {
+    if (!node?.enableDebug || typeof node.debug !== 'function') return;
+    try {
+        const serialized = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+        node.debug(`[AI Orchestrator Agent] ${label}: ${serialized}`);
+    } catch (err) {
+        node.debug(`[AI Orchestrator Agent] ${label}: [unserializable payload]`);
+    }
+}
+
+/**
  * Calls the AI with proper error handling
  */
 async function callAI(node, aiConfig, messages) {
@@ -112,6 +125,8 @@ async function callAI(node, aiConfig, messages) {
             requestPayload.tool_choice = toolChoice;
         }
 
+        debugLog(node, 'Request Payload', requestPayload);
+
         const response = await axios.post(
             'https://openrouter.ai/api/v1/chat/completions',
             requestPayload,
@@ -126,6 +141,7 @@ async function callAI(node, aiConfig, messages) {
         );
 
         const responseMessage = response.data.choices[0]?.message;
+        debugLog(node, 'Response Message', responseMessage || response.data);
 
         if (responseMessage?.tool_calls && aiConfig.tools) {
             return await processToolCalls(node, responseMessage, aiConfig.tools, messages, aiConfig);
@@ -191,6 +207,7 @@ module.exports = function (RED) {
         this.name = config.name || 'AI Orchestrator Agent';
         this.systemPrompt = config.systemPrompt || 'You are a helpful AI assistant.';
         this.capabilities = (config.capabilities || '').split(',').map(s => s.trim()).filter(Boolean);
+        this.enableDebug = !!config.debug;
 
         // AI Orchestrator direct call API
         this.executeTask = async function (taskInput, msg) {

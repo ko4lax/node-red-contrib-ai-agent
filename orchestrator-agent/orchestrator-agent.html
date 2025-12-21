@@ -11,7 +11,8 @@
             capabilities: {
                 value: '',
                 required: true
-            }
+            },
+            debug: { value: false }
         },
         inputs: 1,
         outputs: 1,
@@ -42,6 +43,14 @@
   <div class="form-row">
     <label for="node-input-systemPrompt"><i class="fa fa-comment"></i> System Prompt</label>
     <textarea type="text" id="node-input-systemPrompt" style="width: 100%; height: 80px; resize: vertical; font-family: monospace;"></textarea>
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-debug"><i class="fa fa-bug"></i> Debug Logging</label>
+    <input type="checkbox" id="node-input-debug" style="width:auto; vertical-align: middle;">
+    <div class="form-tips" style="margin-top:5px;">
+        Outputs the orchestrator agent's OpenRouter request and response payloads to the Node-RED debug panel.
+    </div>
   </div>
   
   <div class="form-tips" style="background: #f8f9fa; border-left: 3px solid #3b78e7; padding: 10px;">
