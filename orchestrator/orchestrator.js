@@ -76,32 +76,32 @@ module.exports = function (RED) {
 
                     // 3. Execution Phase (Direct Call)
                     msg.orchestration.currentTaskId = nextTask.id;
-                    const agentInfo = msg.orchestration.availableAgents.find(a =>
-                        a.capabilities.some(cap => cap.toLowerCase() === nextTask.type.toLowerCase())
-                    );
+                    const agentInfo = selectAgentForTask(msg.orchestration, nextTask);
 
                     if (!agentInfo) {
                         node.warn(`No registered agent found for capability: ${nextTask.type}`);
-                        throw new Error(`Capability not provided by any wired agent: ${nextTask.type}`);
-                    }
-
-                    const agentNode = RED.nodes.getNode(agentInfo.id);
-                    if (!agentNode || typeof agentNode.executeTask !== 'function') {
-                        throw new Error(`Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Orchestrator Agent or is missing executeTask API.`);
-                    }
-
-                    node.status({ fill: 'blue', shape: 'ring', text: `agent: ${agentInfo.name}` });
-                    try {
-                        const result = await agentNode.executeTask(nextTask.input, msg);
-                        msg.payload = result;
-                        msg.error = null;
-                    } catch (err) {
-                        // Strip 'AI API Error: ' prefix if present to match test expectations
-                        let errorMessage = err.message;
-                        if (errorMessage.startsWith('AI API Error: ')) {
-                            errorMessage = errorMessage.substring('AI API Error: '.length);
+                        msg.error = `Capability not provided by any wired agent: ${nextTask.type}`;
+                        msg.payload = null;
+                    } else {
+                        const agentNode = RED.nodes.getNode(agentInfo.id);
+                        if (!agentNode || typeof agentNode.executeTask !== 'function') {
+                            msg.error = `Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Orchestrator Agent or is missing executeTask API.`;
+                            msg.payload = null;
+                        } else {
+                            node.status({ fill: 'blue', shape: 'ring', text: `agent: ${agentInfo.name}` });
+                            try {
+                                const result = await agentNode.executeTask(nextTask.input, msg);
+                                msg.payload = result;
+                                msg.error = null;
+                            } catch (err) {
+                                // Strip 'AI API Error: ' prefix if present to match test expectations
+                                let errorMessage = err.message;
+                                if (errorMessage.startsWith('AI API Error: ')) {
+                                    errorMessage = errorMessage.substring('AI API Error: '.length);
+                                }
+                                msg.error = errorMessage;
+                            }
                         }
-                        msg.error = errorMessage;
                     }
 
                     // 4. Reflection Phase
@@ -133,6 +133,10 @@ module.exports = function (RED) {
         const strategy = node.planningStrategy;
         const agents = msg.orchestration.availableAgents || [];
         const agentManifest = agents.map(a => `- ${a.name}: [${a.capabilities.join(', ')}]`).join('\n');
+        const allowedCapabilities = Array.from(new Set(
+            agents.flatMap(a => Array.isArray(a.capabilities) ? a.capabilities : []).map(String)
+        ));
+        const allowedCapabilitiesJson = JSON.stringify(allowedCapabilities);
 
         let prompt = `Goal: ${goal}\n\nAvailable Agents and their Capabilities:\n${agentManifest}\n\nDecompose this goal into a series of tasks. You MUST ONLY use capabilities provided by the available agents listed above. 
 Return a JSON object with a "tasks" array. Each task should have:
@@ -153,6 +157,11 @@ Return a JSON object with a "tasks" array. Each task should have:
 - Do NOT include comments (e.g. // ...)
 - Do NOT include trailing commas
 - All string values must be valid JSON strings (escape newlines as \\n if needed)
+
+CAPABILITY RULES:
+- The "type" field MUST be one of these EXACT strings (case-sensitive): ${allowedCapabilitiesJson}
+- Do NOT invent new capabilities.
+- If the goal seems to require a missing capability, still produce a plan using ONLY the allowed capabilities, and include a task whose input explains the limitation.
 
 Example:
 {
@@ -181,8 +190,8 @@ Example:
      */
     async function reflectAndRefine(node, msg) {
         const currentTaskId = msg.orchestration.currentTaskId;
+        const isError = !!msg.error;
         const taskResult = msg.payload;
-        const isError = msg.error ? true : false;
 
         // Update history
         msg.orchestration.history.push({
@@ -204,16 +213,37 @@ Example:
             }
         }
 
+        const hasHumanApprovalCapability = (msg.orchestration.availableAgents || []).some(a =>
+            Array.isArray(a.capabilities) && a.capabilities.some(c => String(c).toLowerCase() === 'human_approval')
+        );
+
+        const allowedCapabilities = Array.from(new Set(
+            (msg.orchestration.availableAgents || [])
+                .flatMap(a => Array.isArray(a.capabilities) ? a.capabilities : [])
+                .map(String)
+        ));
+        const allowedCapabilitiesJson = JSON.stringify(allowedCapabilities);
+
+        const humanApprovalInstruction = hasHumanApprovalCapability
+            ? '3. If you need more information or approval from a human, add a task with type "human_approval".'
+            : '3. Do NOT request human approval tasks ("human_approval" is not available).';
+
         const prompt = `Current Goal: ${msg.orchestration.goal}
 Current Plan: ${JSON.stringify(msg.orchestration.plan)}
 Last Task ID: ${currentTaskId}
 Last Task ${isError ? 'Error' : 'Result'}: ${JSON.stringify(isError ? msg.error : taskResult)}
 
+Available Capabilities (EXACT strings): ${allowedCapabilitiesJson}
+
 Evaluate the progress. 
 1. If the last task failed, propose a recovery strategy (retry, alternative task, or fail the goal).
 2. If the goal is achieved, set status to "completed".
-3. If you need more information or approval from a human, add a task with type "human_approval".
+${humanApprovalInstruction}
 4. Otherwise, continue execution. You may refine the plan by adding, removing, or modifying tasks.
+
+PLAN UPDATE RULES:
+- In updatedPlan.tasks, every task.type MUST be one of the EXACT capability strings listed above.
+- Do NOT invent or rename capabilities.
 
 Return a JSON object:
 {
@@ -267,6 +297,35 @@ Return a JSON object:
         });
 
         return eligibleTasks[0];
+    }
+
+    function selectAgentForTask(orchestration, task) {
+        if (!orchestration || !task || !task.type) return null;
+        const availableAgents = orchestration.availableAgents || [];
+        const taskType = String(task.type).toLowerCase();
+
+        const matchingAgents = availableAgents.filter(a =>
+            Array.isArray(a.capabilities) && a.capabilities.some(cap => String(cap).toLowerCase() === taskType)
+        );
+
+        if (matchingAgents.length === 0) return null;
+        if (matchingAgents.length === 1) return matchingAgents[0];
+
+        orchestration.agentUsage = orchestration.agentUsage || {};
+        orchestration.agentLastUsedAt = orchestration.agentLastUsedAt || {};
+
+        // Prefer least recently used among matching agents to avoid always picking the first.
+        matchingAgents.sort((a, b) => {
+            const aLast = orchestration.agentLastUsedAt[a.id] || 0;
+            const bLast = orchestration.agentLastUsedAt[b.id] || 0;
+            if (aLast !== bLast) return aLast - bLast;
+            return String(a.id).localeCompare(String(b.id));
+        });
+
+        const selected = matchingAgents[0];
+        orchestration.agentUsage[selected.id] = (orchestration.agentUsage[selected.id] || 0) + 1;
+        orchestration.agentLastUsedAt[selected.id] = Date.now();
+        return selected;
     }
 
     /**
