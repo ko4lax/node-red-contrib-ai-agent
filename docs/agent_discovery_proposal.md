@@ -1,238 +1,86 @@
-# Agent Discovery and Registration Proposal
+# Agent Discovery and Registration Proposal (Refined)
 
 ## Problem Statement
 
-The current AI Orchestrator has a critical architectural flaw: **it creates plans without knowing what agents are actually available**. This leads to:
+The current AI Orchestrator creates plans without knowing what agents are actually available. This leads to:
 
-1. **Silent failures** - Tasks dispatched to non-existent agents never complete
-2. **No validation** - Orchestrator can't verify if agents exist for task types it creates
-3. **Poor user experience** - No way to discover available agents when planning
-4. **Unreliable execution** - Plans may contain impossible-to-execute tasks
+1.  **Silent failures** - Tasks dispatched to non-existent agents never complete.
+2.  **No validation** - Orchestrator can't verify if agents exist for task types it creates.
+3.  **Poor user experience** - No way to discover available agents when planning.
+4.  **Unreliable execution** - Plans may contain impossible-to-execute tasks.
 
-## Current Architecture Issues
+## Proposed Solution: Chain Discovery (Pipeline)
 
-```javascript
-// Current orchestrator.js - creates arbitrary task types
-{
-  "id": "t1", 
-  "type": "research",  // No validation if "research" agents exist
-  "input": "...", 
-  "status": "pending"
-}
+We will implement a visual "Pipeline Discovery" model where the goal picks up its team as it travels through the flow.
 
-// Flow-based routing with no discovery
-msg.topic = nextTask.type;  // Hope someone is listening for this topic
-send([msg, null]);  // Fire and forget
-```
+### 1. AI Agent (`ai-agent`) - Unchanged
+Remains the standalone expert for manual use.
 
-## Proposed Solution: Agent Registry System
+### 2. AI Agent Orchestrator (`ai-agent-orchestrator`) - NEW
+A pass-through node that "tags" the message with its capabilities.
 
-### 1. Global Agent Registry
+*   **Logic**: When a `msg` enters, the node appends its metadata (ID, Capabilities) to an array: `msg.agents`.
+*   **Outputs**:
+    1.  **Result**: Standard output for solo execution.
+    2.  **Pipeline**: Path to the next agent or the Orchestrator.
 
-Create a centralized registry that tracks all available agents and their capabilities.
+### 3. AI Orchestrator (`ai-orchestrator`) - UPDATED
+The Orchestrator is now a "Self-Aware" destination.
 
-```javascript
-// agent-registry.js
-class AgentRegistry {
-    constructor() {
-        this.agents = new Map(); // agentId -> agentInfo
-        this.capabilities = new Map(); // capability -> [agentIds]
-    }
-    
-    register(agentId, agentInfo) { /* ... */ }
-    findAgentsByCapability(capability) { /* ... */ }
-    getAllCapabilities() { /* ... */ }
-    validateTaskTypes(taskTypes) { /* ... */ }
-}
-```
-
-### 2. Agent Self-Registration
-
-Each AI Agent node registers itself when created and unregisters when destroyed.
-
-```javascript
-// ai-agent.js - enhanced with registration
-function AiAgentNode(config) {
-    const node = this;
-    this.agentId = `agent-${node.id}-${Date.now()}`;
-    
-    // Auto-register with capabilities extracted from system prompt
-    const capabilities = extractCapabilities(node.systemPrompt);
-    globalAgentRegistry.register(node.agentId, {
-        name: node.agentName,
-        type: determineAgentType(node.systemPrompt),
-        capabilities: capabilities,
-        description: `AI Agent: ${node.agentName}`
-    });
-    
-    // Cleanup on node deletion
-    node.on('close', () => globalAgentRegistry.unregister(node.agentId));
-}
-```
-
-### 3. Enhanced Orchestrator Planning
-
-Update the orchestrator to plan only with available capabilities.
-
-```javascript
-// orchestrator.js - enhanced planning
-async function createInitialPlan(node, msg) {
-    const availableAgents = globalAgentRegistry.getAllAgents();
-    const availableCapabilities = globalAgentRegistry.getAllCapabilities();
-    
-    if (availableAgents.length === 0) {
-        throw new Error('No agents registered. Create AI Agent nodes first.');
-    }
-    
-    const prompt = `
-Available Agents: ${JSON.stringify(availableAgents)}
-Available Capabilities: ${availableCapabilities.join(', ')}
-
-Create tasks using ONLY these capabilities: ${availableCapabilities.join(', ')}
-    `;
-    
-    // Validate created tasks against available capabilities
-    const planData = JSON.parse(extractJson(response));
-    validateTaskTypes(planData.tasks, availableCapabilities);
-}
-```
-
-### 4. Smart Task Dispatch
-
-Enhance dispatch with agent routing information.
-
-```javascript
-// Enhanced dispatch with routing
-const nextTask = getNextTask(msg.orchestration.plan);
-const capableAgents = globalAgentRegistry.findAgentsByCapability(nextTask.type);
-
-if (capableAgents.length === 0) {
-    throw new Error(`No agents available for task type: ${nextTask.type}`);
-}
-
-msg.agentRouting = {
-    taskType: nextTask.type,
-    capableAgents: capableAgents,
-    selectedAgent: capableAgents[0] // Could implement load balancing
-};
-```
-
-## Implementation Plan
-
-### Phase 1: Core Registry (High Priority)
-1. Create `orchestrator/agent-registry.js`
-2. Implement basic registration and discovery
-3. Add unit tests
-
-### Phase 2: Agent Integration (High Priority)
-1. Update `agent/ai-agent.js` to auto-register
-2. Extract capabilities from system prompts
-3. Handle registration/unregistration lifecycle
-
-### Phase 3: Orchestrator Enhancement (High Priority)
-1. Update `orchestrator/orchestrator.js` to use registry
-2. Add task validation against available capabilities
-3. Enhance planning prompt with agent information
-4. Improve error messages for missing agents
-
-### Phase 4: UI Improvements (Medium Priority)
-1. Add "Available Agents" section to orchestrator config
-2. Show agent capabilities in the UI
-3. Add registry status indicators
-
-### Phase 5: Advanced Features (Low Priority)
-1. Agent health monitoring
-2. Load balancing between multiple agents
-3. Agent specialization scoring
-4. Dynamic capability discovery
-
-## Capability Extraction Strategy
-
-### Automatic Detection
-Parse system prompts for capability keywords:
-
-```javascript
-const capabilityMap = {
-    'research': ['research', 'analyze', 'investigate', 'study'],
-    'code': ['code', 'program', 'develop', 'implement'],
-    'review': ['review', 'check', 'validate', 'test'],
-    'write': ['write', 'create', 'generate', 'draft'],
-    'data': ['data', 'process', 'transform', 'calculate']
-};
-```
-
-### Manual Override
-Allow users to specify capabilities in node configuration:
-
-```javascript
-// ai-agent.html - add capabilities field
-<div class="form-row">
-    <label for="node-input-capabilities"><i class="fa fa-cogs"></i> Capabilities</label>
-    <input type="text" id="node-input-capabilities" placeholder="research,code,review">
-</div>
-```
-
-## Benefits of This Approach
-
-1. **Reliability** - Only creates executable plans
-2. **Validation** - Early detection of impossible tasks
-3. **Visibility** - Users can see available agents
-4. **Flexibility** - Agents can be added/removed dynamically
-5. **Scalability** - Supports multiple agents per capability
-6. **Debugging** - Clear error messages for missing capabilities
-
-## Backward Compatibility
-
-- Existing flows continue to work (topic-based routing still functions)
-- Registry is additive - doesn't break current agent implementations
-- Gradual migration path for existing deployments
-
-## Testing Strategy
-
-1. **Unit Tests**: Registry core functions
-2. **Integration Tests**: Agent registration/unregistration
-3. **Flow Tests**: Complete orchestrator-agent workflows
-4. **Error Scenarios**: Missing agents, invalid capabilities
-
-## Migration Guide
-
-1. Deploy updated nodes with registry support
-2. Existing agents auto-register on next deployment
-3. Orchestrator immediately benefits from agent discovery
-4. No manual configuration required for basic functionality
-
-## Risk Assessment
-
-**Low Risk**:
-- Registry is internal - no external dependencies
-- Backward compatible with existing flows
-- Can be rolled back by removing registry calls
-
-**Medium Risk**:
-- Performance impact of registry operations (minimal)
-- Memory usage for agent storage (trivial)
-
-**Mitigations**:
-- Comprehensive testing before deployment
-- Feature flag to disable registry if needed
-- Monitoring for performance impact
-
-## Success Metrics
-
-1. **Zero silent task failures** due to missing agents
-2. **Improved planning accuracy** with available agents
-3. **Better user experience** with visible agent capabilities
-4. **Easier debugging** with clear error messages
-
-## Next Steps
-
-1. Review and approve this proposal
-2. Implement Phase 1 (Core Registry)
-3. Progress through phases based on feedback
-4. Monitor and measure success metrics
+*   **Logic**: It looks at the incoming `msg.agents` to see which tools it has at its disposal for the current goal.
+*   **Execution**: It calls the discovered agents directly via their Node IDs (Zero-Wire).
+*   **Port Layout**: 1 Input (Goal + Team), 1 Output (Final Result).
 
 ---
 
-**Status**: Ready for review and implementation
-**Estimated effort**: 2-3 days for core functionality, 1 week for full implementation
-**Priority**: High - fixes critical architectural flaw
+## Technical Details: The Clean Path
+
+### Chain Discovery Diagram
+The flow is linear, intuitive, and visually represents the "Tool Belt" for each specific orchestrator.
+
+```
+[Inject Goal] -> [Agent: Coding] -> [Agent: Researcher] -> [Orchestrator] -> [Output]
+```
+
+### Discovery Data Structure
+As the message travels, it builds a manifest:
+```javascript
+// msg.agents after passing through two nodes:
+[
+  { id: "node_1", name: "Coder", capabilities: ["js", "python"] },
+  { id: "node_2", name: "Search", capabilities: ["web-search"] }
+]
+```
+
+### Zero-Wire Direct Execution
+The orchestrator calls the agent without any wires:
+```javascript
+// Inside orchestrator loop:
+const coder = RED.nodes.getNode("node_1");
+const result = await coder.executeTask("Fix the bug", msg);
+```
+
+## Summary of Benefits
+
+1.  **Perfect Visual Clarity**: The wires literally show which agents are helping with which goal.
+2.  **No Messy Ports**: The Orchestrator has only one input and one output, looking like a simple black box.
+3.  **Dynamic Scoping**: You can give different agents to different orchestrators just by changing the wire path.
+4.  **Zero Execution Wires**: The complex "Manager/Worker" communication is hidden inside the code, keeping the workspace clean.
+
+## Summary of Benefits
+
+1.  **Explicit Wiring**: Only agents physically wired to the Orchestrator's registration port are used in the plan.
+2.  **Visual Hierarchy**: Users can see exactly which agents are available to which orchestrator.
+3.  **Backward Compatibility**: The original `ai-agent` node is completely unaffected.
+4.  **Simplicity**: No complex configuration nodes or global state management needed.
+
+## Implementation Phases
+
+1.  **Phase 1**: Create the `ai-agent-orchestrator` node (UI + logic).
+2.  **Phase 2**: Add Input 2 to `ai-orchestrator` and implement the registration listener.
+3.  **Phase 3**: Update `createInitialPlan` in `ai-orchestrator` to use the registered agent list.
+4.  **Phase 4**: Documentation and example flows.
+
+---
+**Status**: Revised - Aligned with user's specific 2-node architecture.  
+**Priority**: High - Ready for implementation.

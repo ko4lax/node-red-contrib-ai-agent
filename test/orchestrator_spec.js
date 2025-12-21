@@ -1,12 +1,13 @@
 const should = require('should');
 const helper = require('node-red-node-test-helper');
 const orchestratorNode = require('../orchestrator/orchestrator.js');
+const agentOrchestratorNode = require('../agent-orchestrator/agent-orchestrator.js');
 const axios = require('axios');
 const sinon = require('sinon');
 
 helper.init(require.resolve('node-red'));
 
-describe('ai-orchestrator node', function () {
+describe('ai-orchestrator node (Chain Discovery)', function () {
     let axiosPostStub;
 
     beforeEach(function (done) {
@@ -33,257 +34,218 @@ describe('ai-orchestrator node', function () {
         });
     });
 
-    it('should create an initial plan', function (done) {
+    it('should discover agents and execute a simple plan', function (done) {
         const flow = [
-            { id: 'n1', type: 'ai-orchestrator', name: 'orchestrator', wires: [['n2'], ['n3']] },
-            { id: 'n2', type: 'helper' },
-            { id: 'n3', type: 'helper' }
+            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Coder', capabilities: 'coding', wires: [[], ['orch1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'helper1', type: 'helper' }
         ];
 
-        const planResponse = {
+        axiosPostStub.onCall(0).resolves({
             data: {
                 choices: [{
                     message: {
                         content: JSON.stringify({
-                            tasks: [
-                                { id: 't1', type: 'test', input: 'task 1', status: 'pending' }
-                            ]
+                            tasks: [{ id: 't1', type: 'coding', input: 'task 1', status: 'pending' }]
                         })
                     }
                 }]
             }
-        };
-
-        axiosPostStub.resolves(planResponse);
-
-        helper.load(orchestratorNode, flow, function () {
-            const n1 = helper.getNode('n1');
-            const n2 = helper.getNode('n2');
-
-            n2.on('input', function (msg) {
-                try {
-                    msg.should.have.property('payload', 'task 1');
-                    msg.should.have.property('orchestration');
-                    msg.orchestration.should.have.property('status', 'executing');
-                    msg.orchestration.plan.tasks.should.have.length(1);
-                    done();
-                } catch (err) {
-                    done(err);
-                }
-            });
-
-            n1.receive({
-                payload: 'My goal',
-                aiagent: { apiKey: 'test-key', model: 'test-model' }
-            });
         });
-    });
+        axiosPostStub.onCall(1).resolves({
+            data: { choices: [{ message: { content: "result 1" } }] }
+        });
+        axiosPostStub.onCall(2).resolves({
+            data: { choices: [{ message: { content: JSON.stringify({ analysis: 'done', status: 'completed' }) } }] }
+        });
 
-    it('should reflect and move to next task', function (done) {
-        const flow = [
-            { id: 'n1', type: 'ai-orchestrator', name: 'orchestrator', wires: [['n2'], ['n3']] },
-            { id: 'n2', type: 'helper' },
-            { id: 'n3', type: 'helper' }
-        ];
+        helper.load([orchestratorNode, agentOrchestratorNode], flow, function () {
+            const agent1 = helper.getNode('agent1');
+            const helper1 = helper.getNode('helper1');
 
-        const reflectionResponse = {
-            data: {
-                choices: [{
-                    message: {
-                        content: JSON.stringify({
-                            analysis: 'Task 1 done, moving to Task 2',
-                            status: 'executing',
-                            updatedPlan: {
-                                tasks: [
-                                    { id: 't1', type: 'test', input: 'task 1', status: 'completed', output: 'result 1' },
-                                    { id: 't2', type: 'test', input: 'task 2', status: 'pending' }
-                                ]
-                            }
-                        })
-                    }
-                }]
-            }
-        };
-
-        axiosPostStub.resolves(reflectionResponse);
-
-        helper.load(orchestratorNode, flow, function () {
-            const n1 = helper.getNode('n1');
-            const n2 = helper.getNode('n2');
-
-            n2.on('input', function (msg) {
+            helper1.on('input', function (msg) {
                 try {
-                    msg.should.have.property('payload', 'task 2');
-                    msg.orchestration.plan.tasks[0].should.have.property('status', 'completed');
+                    msg.orchestration.status.should.equal('completed');
+                    msg.payload.should.equal("result 1");
                     done();
                 } catch (err) {
                     done(err);
                 }
             });
 
-            n1.receive({
-                payload: 'result 1',
-                aiagent: { apiKey: 'test-key', model: 'test-model' },
-                orchestration: {
-                    planId: 'p1',
-                    iterations: 1,
-                    goal: 'My goal',
-                    status: 'executing',
-                    currentTaskId: 't1',
-                    history: [],
-                    plan: {
-                        tasks: [
-                            { id: 't1', type: 'test', input: 'task 1', status: 'pending' }
-                        ]
-                    }
-                }
+            agent1.receive({
+                payload: 'Go',
+                aiagent: { apiKey: 'test-key', model: 'test-model' }
             });
         });
     });
 
     it('should respect task dependencies', function (done) {
         const flow = [
-            { id: 'n1', type: 'ai-orchestrator', wires: [['n2'], ['n3']] },
-            { id: 'n2', type: 'helper' },
-            { id: 'n3', type: 'helper' }
+            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'helper1', type: 'helper' }
         ];
 
-        helper.load(orchestratorNode, flow, function () {
-            const n1 = helper.getNode('n1');
-            const n2 = helper.getNode('n2');
+        // Plan with t2 depending on t1
+        axiosPostStub.onCall(0).resolves({
+            data: {
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            tasks: [
+                                { id: 't1', type: 'work', input: 'task 1', status: 'pending', dependsOn: [] },
+                                { id: 't2', type: 'work', input: 'task 2', status: 'pending', dependsOn: ['t1'] }
+                            ]
+                        })
+                    }
+                }]
+            }
+        });
 
-            const plan = {
-                tasks: [
-                    { id: 't1', type: 'test', input: 'task 1', status: 'pending', dependsOn: [] },
-                    { id: 't2', type: 'test', input: 'task 2', status: 'pending', dependsOn: ['t1'] }
-                ]
-            };
+        // Agent calls
+        axiosPostStub.onCall(1).resolves({ data: { choices: [{ message: { content: "r1" } }] } }); // t1 result
+        axiosPostStub.onCall(2).resolves({ data: { choices: [{ message: { content: JSON.stringify({ analysis: 'next', status: 'executing' }) } }] } }); // reflect 1
 
-            n2.on('input', function (msg) {
+        axiosPostStub.onCall(3).resolves({ data: { choices: [{ message: { content: "r2" } }] } }); // t2 result
+        axiosPostStub.onCall(4).resolves({ data: { choices: [{ message: { content: JSON.stringify({ analysis: 'done', status: 'completed' }) } }] } }); // reflect 2
+
+        helper.load([orchestratorNode, agentOrchestratorNode], flow, function () {
+            const agent1 = helper.getNode('agent1');
+            const helper1 = helper.getNode('helper1');
+
+            helper1.on('input', function (msg) {
                 try {
-                    // First task should be t1
-                    msg.should.have.property('payload', 'task 1');
-                    msg.orchestration.currentTaskId.should.equal('t1');
+                    msg.orchestration.status.should.equal('completed');
+                    msg.orchestration.history.should.have.length(2);
+                    msg.orchestration.history[0].taskId.should.equal('t1');
+                    msg.orchestration.history[1].taskId.should.equal('t2');
                     done();
                 } catch (err) {
                     done(err);
                 }
             });
 
-            n1.receive({
-                aiagent: { apiKey: 'test-key', model: 'test-model' },
-                orchestration: {
-                    planId: 'p1',
-                    iterations: 0,
-                    goal: 'Goal',
-                    status: 'executing',
-                    plan: plan
-                }
+            agent1.receive({
+                payload: 'Run dependencies',
+                aiagent: { apiKey: 'test-key', model: 'test-model' }
             });
         });
     });
 
     it('should respect task priorities', function (done) {
         const flow = [
-            { id: 'n1', type: 'ai-orchestrator', wires: [['n2'], ['n3']] },
-            { id: 'n2', type: 'helper' },
-            { id: 'n3', type: 'helper' }
+            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'helper1', type: 'helper' }
         ];
 
-        helper.load(orchestratorNode, flow, function () {
-            const n1 = helper.getNode('n1');
-            const n2 = helper.getNode('n2');
+        // Plan with t2 having higher priority than t1
+        axiosPostStub.onCall(0).resolves({
+            data: {
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            tasks: [
+                                { id: 't1', type: 'work', input: 'task 1', status: 'pending', priority: 1 },
+                                { id: 't2', type: 'work', input: 'task 2', status: 'pending', priority: 10 }
+                            ]
+                        })
+                    }
+                }]
+            }
+        });
 
-            const plan = {
-                tasks: [
-                    { id: 't1', type: 'test', input: 'task 1', status: 'pending', priority: 1 },
-                    { id: 't2', type: 'test', input: 'task 2', status: 'pending', priority: 10 }
-                ]
-            };
+        axiosPostStub.onCall(1).resolves({ data: { choices: [{ message: { content: "r2" } }] } }); // t2 executed first
+        axiosPostStub.onCall(2).resolves({ data: { choices: [{ message: { content: JSON.stringify({ analysis: 'next', status: 'executing' }) } }] } });
 
-            n2.on('input', function (msg) {
+        axiosPostStub.onCall(3).resolves({ data: { choices: [{ message: { content: "r1" } }] } }); // t1 executed second
+        axiosPostStub.onCall(4).resolves({ data: { choices: [{ message: { content: JSON.stringify({ analysis: 'done', status: 'completed' }) } }] } });
+
+        helper.load([orchestratorNode, agentOrchestratorNode], flow, function () {
+            const agent1 = helper.getNode('agent1');
+            const helper1 = helper.getNode('helper1');
+
+            helper1.on('input', function (msg) {
                 try {
-                    // t2 has higher priority, should be first
-                    msg.should.have.property('payload', 'task 2');
-                    msg.orchestration.currentTaskId.should.equal('t2');
+                    msg.orchestration.history[0].taskId.should.equal('t2');
+                    msg.orchestration.history[1].taskId.should.equal('t1');
                     done();
                 } catch (err) {
                     done(err);
                 }
             });
 
-            n1.receive({
-                aiagent: { apiKey: 'test-key', model: 'test-model' },
-                orchestration: {
-                    planId: 'p1',
-                    iterations: 0,
-                    goal: 'Goal',
-                    status: 'executing',
-                    plan: plan
-                }
+            agent1.receive({
+                payload: 'Run priorities',
+                aiagent: { apiKey: 'test-key', model: 'test-model' }
             });
         });
     });
 
-    it('should handle task errors and update plan', function (done) {
+    it('should handle task errors and recover', function (done) {
         const flow = [
-            { id: 'n1', type: 'ai-orchestrator', wires: [['n2'], ['n3']] },
-            { id: 'n2', type: 'helper' },
-            { id: 'n3', type: 'helper' }
+            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'helper1', type: 'helper' }
         ];
 
-        const recoveryResponse = {
+        axiosPostStub.onCall(0).resolves({
             data: {
                 choices: [{
                     message: {
                         content: JSON.stringify({
-                            analysis: 'Task 1 failed, retrying with new task',
+                            tasks: [{ id: 't1', type: 'work', input: 'fail this', status: 'pending' }]
+                        })
+                    }
+                }]
+            }
+        });
+
+        // Agent 1 fails
+        axiosPostStub.onCall(1).rejects(new Error('AI execution failed'));
+
+        // Reflection proposes recovery
+        axiosPostStub.onCall(2).resolves({
+            data: {
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            analysis: 't1 failed, trying t2',
                             status: 'executing',
                             updatedPlan: {
                                 tasks: [
-                                    { id: 't1', type: 'test', input: 'task 1', status: 'failed', error: 'some error' },
-                                    { id: 't3', type: 'test', input: 'retry task 1 differently', status: 'pending' }
+                                    { id: 't1', type: 'work', input: 'fail this', status: 'failed', error: 'AI execution failed' },
+                                    { id: 't2', type: 'work', input: 'recovery task', status: 'pending' }
                                 ]
                             }
                         })
                     }
                 }]
             }
-        };
+        });
 
-        axiosPostStub.resolves(recoveryResponse);
+        axiosPostStub.onCall(3).resolves({ data: { choices: [{ message: { content: "recovered" } }] } });
+        axiosPostStub.onCall(4).resolves({ data: { choices: [{ message: { content: JSON.stringify({ status: 'completed' }) } }] } });
 
-        helper.load(orchestratorNode, flow, function () {
-            const n1 = helper.getNode('n1');
-            const n2 = helper.getNode('n2');
+        helper.load([orchestratorNode, agentOrchestratorNode], flow, function () {
+            const agent1 = helper.getNode('agent1');
+            const helper1 = helper.getNode('helper1');
 
-            n2.on('input', function (msg) {
+            helper1.on('input', function (msg) {
                 try {
-                    msg.should.have.property('payload', 'retry task 1 differently');
-                    msg.orchestration.plan.tasks[0].should.have.property('status', 'failed');
+                    msg.orchestration.status.should.equal('completed');
+                    msg.orchestration.history[0].should.have.property('error', 'AI execution failed');
+                    msg.payload.should.equal('recovered');
                     done();
                 } catch (err) {
                     done(err);
                 }
             });
 
-            n1.receive({
-                payload: 'original error payload',
-                error: 'some error',
-                aiagent: { apiKey: 'test-key', model: 'test-model' },
-                orchestration: {
-                    planId: 'p1',
-                    iterations: 1,
-                    goal: 'Goal',
-                    status: 'executing',
-                    currentTaskId: 't1',
-                    history: [],
-                    plan: {
-                        tasks: [
-                            { id: 't1', type: 'test', input: 'task 1', status: 'pending' }
-                        ]
-                    }
-                }
+            agent1.receive({
+                payload: 'Error recovery test',
+                aiagent: { apiKey: 'test-key', model: 'test-model' }
             });
         });
     });

@@ -1,0 +1,70 @@
+<script type="text/javascript">
+    RED.nodes.registerType('ai-agent-orchestrator', {
+        category: 'AI Agent',
+        color: '#deb887',
+        defaults: {
+            name: { value: '' },
+            systemPrompt: {
+                value: 'You are a helpful AI assistant.',
+                required: true
+            },
+            capabilities: {
+                value: '',
+                required: true
+            }
+        },
+        inputs: 1,
+        outputs: 2,
+        icon: 'agent/ai-agent-icon.svg',
+        label: function () {
+            return this.name || 'AI Agent Orchestrator';
+        },
+        paletteLabel: 'Agent Orchestrator',
+        oneditprepare: function () {
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="ai-agent-orchestrator">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="AI Agent Orchestrator">
+  </div>
+  
+  <div class="form-row">
+    <label for="node-input-capabilities"><i class="fa fa-list"></i> Capabilities</label>
+    <input type="text" id="node-input-capabilities" placeholder="e.g. coding, research, translation">
+    <div class="form-tips" style="margin-top: 5px;">
+        Comma-separated list of skills this agent provides to its Orchestrator.
+    </div>
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-systemPrompt"><i class="fa fa-comment"></i> System Prompt</label>
+    <textarea type="text" id="node-input-systemPrompt" style="width: 100%; height: 80px; resize: vertical; font-family: monospace;"></textarea>
+  </div>
+  
+  <div class="form-tips" style="background: #f8f9fa; border-left: 3px solid #3b78e7; padding: 10px;">
+      <p><b>Pipeline Node:</b> This node tags messages with its identity so a connected Orchestrator can use it.</p>
+      <p><b>Output 1:</b> Standard result (Solo use).</p>
+      <p><b>Output 2:</b> Discovery Pipeline (Connect to Orchestrator).</p>
+  </div>
+</script>
+
+<script type="text/x-red" data-help-name="ai-agent-orchestrator">
+  <h3>AI Agent Orchestrator Node</h3>
+  <p>A specialized version of the AI Agent designed for multi-agent workflows.</p>
+  
+  <h4>Features</h4>
+  <ul>
+    <li><b>Discovery Pipeline</b>: Appends its metadata to `msg.agents` for the AI Orchestrator.</li>
+    <li><b>Direct Invocation</b>: Can be called directly by the Orchestrator without wires.</li>
+  </ul>
+  
+  <h4>Usage</h4>
+  <ol>
+    <li>Place the node in front of an AI Orchestrator node.</li>
+    <li>Connect the 2nd output of this node to the input of the Orchestrator.</li>
+    <li>Define the agent's specific capabilities in the config.</li>
+  </ol>
+</script>

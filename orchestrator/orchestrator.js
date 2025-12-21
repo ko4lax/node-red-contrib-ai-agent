@@ -12,16 +12,21 @@ module.exports = function (RED) {
 
         node.on('input', async function (msg, send, done) {
             send = send || function () { node.send.apply(node, arguments) };
-            node.status({ fill: 'blue', shape: 'dot', text: 'thinking...' });
 
             try {
                 // Initialize orchestration state if not present
                 if (!msg.orchestration) {
+                    node.status({ fill: 'blue', shape: 'dot', text: 'initializing team...' });
+
+                    // Pipeline Discovery: Extract agents from upstream chain
+                    const availableAgents = msg.agents || [];
+
                     msg.orchestration = {
                         planId: 'plan-' + Date.now(),
                         iterations: 0,
                         goal: msg.payload || node.defaultGoal,
                         status: 'planning',
+                        availableAgents: availableAgents,
                         history: [],
                         plan: null
                     };
@@ -35,7 +40,7 @@ module.exports = function (RED) {
                     msg.orchestration.status = 'failed';
                     msg.orchestration.error = 'Max iterations reached';
                     node.status({ fill: 'red', shape: 'dot', text: 'max iterations' });
-                    send([null, msg]); // Output 2 for final result
+                    send(msg);
                     if (done) done();
                     return;
                 }
@@ -45,31 +50,55 @@ module.exports = function (RED) {
                     throw new Error('AI Model configuration missing or API key not found.');
                 }
 
-                // Logic based on current status
-                if (msg.orchestration.status === 'planning' || !msg.orchestration.plan) {
-                    await createInitialPlan(node, msg);
-                } else if (msg.orchestration.currentTaskId) {
+                // Inner loop for Zero-Wire execution
+                while (msg.orchestration.status !== 'completed' && msg.orchestration.status !== 'failed') {
+
+                    // 1. Planning Phase
+                    if (msg.orchestration.status === 'planning' || !msg.orchestration.plan) {
+                        node.status({ fill: 'blue', shape: 'dot', text: 'planning...' });
+                        await createInitialPlan(node, msg);
+                    }
+
+                    // 2. Find Next Task
+                    const nextTask = getNextTask(msg.orchestration.plan);
+                    if (!nextTask) {
+                        msg.orchestration.status = 'completed';
+                        break;
+                    }
+
+                    // 3. Execution Phase (Direct Call)
+                    msg.orchestration.currentTaskId = nextTask.id;
+                    const agentInfo = msg.orchestration.availableAgents.find(a =>
+                        a.capabilities.some(cap => cap.toLowerCase() === nextTask.type.toLowerCase())
+                    );
+
+                    if (!agentInfo) {
+                        node.warn(`No registered agent found for capability: ${nextTask.type}`);
+                        throw new Error(`Capability not provided by any wired agent: ${nextTask.type}`);
+                    }
+
+                    const agentNode = RED.nodes.getNode(agentInfo.id);
+                    if (!agentNode || typeof agentNode.executeTask !== 'function') {
+                        throw new Error(`Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Agent Orchestrator or is missing executeTask API.`);
+                    }
+
+                    node.status({ fill: 'blue', shape: 'ring', text: `agent: ${agentInfo.name}` });
+                    try {
+                        const result = await agentNode.executeTask(nextTask.input, msg);
+                        msg.payload = result;
+                        msg.error = null;
+                    } catch (err) {
+                        msg.error = err.message;
+                    }
+
+                    // 4. Reflection Phase
+                    node.status({ fill: 'blue', shape: 'dot', text: 'reflecting...' });
                     await reflectAndRefine(node, msg);
                 }
 
-                // Dispatch or Finalize
-                if (msg.orchestration.status === 'completed' || msg.orchestration.status === 'failed') {
-                    node.status({ fill: 'green', shape: 'dot', text: msg.orchestration.status });
-                    send([null, msg]); // Output 2
-                } else {
-                    const nextTask = getNextTask(msg.orchestration.plan);
-                    if (nextTask) {
-                        msg.payload = nextTask.input;
-                        msg.topic = nextTask.type;
-                        msg.orchestration.currentTaskId = nextTask.id;
-                        node.status({ fill: 'blue', shape: 'ring', text: `dispatching: ${nextTask.id}` });
-                        send([msg, null]); // Output 1
-                    } else {
-                        msg.orchestration.status = 'completed';
-                        node.status({ fill: 'green', shape: 'dot', text: 'completed' });
-                        send([null, msg]); // Output 2
-                    }
-                }
+                // Final Output
+                node.status({ fill: 'green', shape: 'dot', text: msg.orchestration.status });
+                send(msg);
 
                 if (done) done();
             } catch (error) {
@@ -83,17 +112,18 @@ module.exports = function (RED) {
     async function createInitialPlan(node, msg) {
         const goal = msg.orchestration.goal;
         const strategy = node.planningStrategy;
+        const agents = msg.orchestration.availableAgents || [];
+        const agentManifest = agents.map(a => `- ${a.name}: [${a.capabilities.join(', ')}]`).join('\n');
 
-        let prompt = `Goal: ${goal}\n\nDecompose this goal into a series of tasks for AI agents. 
+        let prompt = `Goal: ${goal}\n\nAvailable Agents and their Capabilities:\n${agentManifest}\n\nDecompose this goal into a series of tasks. You MUST ONLY use capabilities provided by the available agents listed above. 
 Return a JSON object with a "tasks" array. Each task should have:
 - "id": a short string id (e.g., "t1", "t2")
-- "type": the type of task (e.g., "research", "code", "review")
+- "type": the name of the REQUIRED capability from the list above
 - "input": detailed instruction for the agent
 - "status": "pending"
 - "priority": a number (1-10, default 5)
 - "dependsOn": an array of IDs of tasks that must be completed BEFORE this task can start (empty array if none)
-
-Note: You can use "human_approval" as a task type if you need a human to verify something before proceeding.`;
+`;
 
         if (strategy === 'advanced') {
             prompt += `\n\nThink about parallel execution. Group related tasks and identify bottlenecks. Ensure dependencies are logical.`;

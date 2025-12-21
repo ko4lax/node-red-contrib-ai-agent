@@ -19,6 +19,7 @@ Your feedback and contributions are highly appreciated!
 ## Features
 
 - **AI Agent Node**: Process messages with AI, maintaining conversation context
+- **AI Agent Orchestrator Node**: Participates in orchestrated flows via Chain Discovery
 - **Memory Nodes**: 
   - **In-Memory**: Store conversation context in memory (volatile)
   - **File-based**: Persist conversation context to disk
@@ -61,6 +62,14 @@ Processes messages using the configured AI model and maintains conversation cont
 - **System Prompt**: Initial instructions for the AI
 - **Response Type**: Format of the response (text or JSON object)
 
+### AI Agent Orchestrator
+A specialized version of the AI Agent designed for multi-agent workflows. It "tags" messages in a pipeline so the **AI Orchestrator** can discover it.
+
+**Properties:**
+- **Name**: Display name for the node
+- **Capabilities**: Comma-separated list of skills (e.g., `coding, research`)
+- **System Prompt**: Instructions for this specific expert
+
 ### Memory (In-Memory)
 A configuration node that initializes the conversation context in memory. The agent node uses this configuration to manage the conversation context.
 
@@ -91,13 +100,13 @@ Configures the AI model and API settings.
 - **Name**: Display name for the node
 
 ### AI Orchestrator
-Coordinates multiple AI agents by creating and executing plans. It uses an autonomy loop (observe-think-act-reflect) to achieve complex goals.
+Coordinates multiple AI agents by creating and executing plans. It uses **Chain Discovery** to identify available agents from its input message.
 
 **Key Features:**
+- **Chain Discovery**: Implicitly discovers agents wired in a pipeline before it.
+- **Zero-Wire Execution**: Calls discovered agents directly via code (no messy routing wires).
 - **Non-linear Planning**: Supports task dependencies (tasks wait for their predecessors).
-- **Task Prioritization**: Executes higher priority tasks first within dependency constraints.
-- **Dynamic Plan Revision**: Refines the plan based on task outcomes and agent feedback.
-- **Error Recovery**: Automatically handles task failures with recovery strategies (retry, pivot, or fail).
+- **Error Recovery**: Automatically handles task failures with recovery strategies.
 
 **Properties:**
 - **Max Iterations**: Maximum cycles for the autonomy loop
@@ -186,17 +195,16 @@ For more complex scenarios, you can chain multiple agents to process messages in
 
 Each agent will maintain its own conversation context based on its memory configuration.
 
-## Example: Autonomous Orchestration
+## Example: Autonomous Orchestration (Chain Discovery)
 
-The AI Orchestrator can manage complex, multi-step tasks:
+The AI Orchestrator can manage complex, multi-step tasks by utilizing specialized agents in a pipeline:
 
-1. Add an **AI Orchestrator** node
-2. Connect its first output to an **AI Agent**
-3. Connect the agent's output back to the **AI Orchestrator** input
-4. Connect the orchestrator's second output to a **Debug** node
-5. Configure the orchestrator with a goal (e.g., "Write a blog post and then translate it to Spanish")
+1. Add an **AI Orchestrator** node.
+2. Add one or more **AI Agent Orchestrator** nodes (e.g., "Coder", "Researcher").
+3. Connect them in a line: `[Inject Goal] --> [Coder] --> [Researcher] --> [Orchestrator] --> [Debug]`.
+4. The Orchestrator will automatically discover the "Coder" and "Researcher" via the message pipeline and call them as needed to achieve the goal.
 
-The orchestrator will create a plan (optionally with dependencies and priorities), dispatch the first available task to the agent, reflect on the result, and then dispatch the next task until completion. If a task fails, it can revise the plan to recover.
+This linear architecture keeps your flows clean while allowing for powerful, multi-agent collaboration.
 
 ## Best Practices
 

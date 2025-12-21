@@ -9,9 +9,9 @@ flowchart LR
     A[Input Node] -->|msg| B[AI Model Node]
     B -->|msg { aiagent }| M[AI Memory Node]
     M -->|msg { aiagent, aimemory }| C[AI Tool Node]
-    C -->|msg { aiagent, aimemory, tools }| O[AI Orchestrator Node]
-    O -->|msg { orchestration }| D[AI Agent Node]
-    D -->|loop back| O
+    C -->|msg { aiagent, aimemory, tools }| AO[AI Agent Orchestrator]
+    AO -->|msg { agents }| O[AI Orchestrator Node]
+    O -.->|Direct Call| AO
     O -->|final response| E[Output Node]
 
     subgraph AI Model Node
@@ -150,18 +150,15 @@ flowchart LR
    - Multiple AI Tool nodes can be chained to add multiple tools
 
 4. **AI Orchestrator Processing**
-   - Receives the message with `msg.aiagent`, `msg.aimemory`, and `msg.tools`.
-   - **Planning**: If no plan exists, uses AI to decompose the goal into tasks. Supports non-linear plans with `dependsOn` constraints and `priority` values.
-   - **Dispatching**: Identifies all eligible tasks (those with all dependencies met) and sends the highest priority one to output 1.
-   - **Reflection**: If a task result is returned, evaluates progress. Supports error detection; if `msg.error` is present, the orchestrator reflects on the failure and proposes recovery tasks.
-   - **Looping**: Directs the flow back to AI agents until the goal is met or max iterations reached.
-   - **Output**: Sends the final orchestration result to output 2.
+   - Receives the message containing a goal and a list of available agents in `msg.agents` (Chain Discovery).
+   - **Planning**: Uses AI to decompose the goal into tasks, restricted to the capabilities provided by the discovered agents.
+   - **Zero-Wire Execution**: Calls the `executeTask()` method of each agent directly via code. No external wires are needed for the manager-worker loop.
+   - **Reflection**: Evaluates progress and refines the plan dynamically.
+   - **Output**: Sends the final completed result to its single output port.
 
-5. **AI Agent Processing**
-   - Receives the enhanced message with configuration, tools, and orchestration context.
-   - Uses the specified AI model and tools to process the task.
-   - Can maintain conversation context if configured.
-   - Generates a response based on the current step defined by the orchestrator.
+5. **AI Agent Orchestrator Processing**
+   - **Pipeline Mode**: When a message passes through, it appends its metadata (Node ID and Skills) to the `msg.agents` array.
+   - **Execution Mode**: When called by the Orchestrator, it performs the AI task and returns the result directly to the caller.
 
 6. **Output**
    - Returns the AI's response in the message payload
@@ -180,22 +177,18 @@ In this flow:
 3. AI Agent processes the message using the specified AI model
 4. Debug node displays the AI's response
 
-## Autonomous Flow
+## Autonomous Flow (Chain Discovery)
 
 ```
-[inject] --> [AI Model] --> [AI Orchestrator] --> [AI Agent] 
-                                    ^               |
-                                    └───────────────┘
-                                           |
-                                       [debug]
+[inject] --> [AI Model] --> [Agent: Coder] --> [Agent: Reviewer] --> [AI Orchestrator] 
+                                                                           |
+                                                                        [debug]
 ```
 
-In this autonomous loop:
-1. **AI Orchestrator** creates a plan based on the goal.
-2. It sends the first task to the **AI Agent**.
-3. The **AI Agent** executes the task and sends the result back to the orchestrator.
-4. **AI Orchestrator** reflects on the result and decides whether to continue or finish.
-5. If continuing, it sends the next task; if finished, it sends the result to the debug node.
+In this autonomous pipeline:
+1. **Agents** "register" themselves by pinning their skills to the message as it passes through.
+2. **AI Orchestrator** receives the goal and the team manifest simultaneously.
+3. **Internal Loop**: The Orchestrator manages the task flow internally, calling the agents directly via code until the goal is achieved.
 
 ## Error Handling
 

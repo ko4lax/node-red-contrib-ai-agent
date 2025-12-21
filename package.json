@@ -64,6 +64,7 @@
             "ai-memory-file": "./memory-file/memory-file.js",
             "ai-memory-inmem": "./memory-inmem/memory-inmem.js",
             "ai-orchestrator": "./orchestrator/orchestrator.js",
+            "ai-agent-orchestrator": "./agent-orchestrator/agent-orchestrator.js",
             "ai-tool-approval": "./tool-approval/ai-tool-approval.js"
         }
     }
