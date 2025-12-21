@@ -12,10 +12,10 @@
 | Feature | Node-RED AI Agent | n8n Agent Node |
 |---------|-------------------|----------------|
 | **LLM Providers** | Primarily OpenRouter (extensible) | Multiple providers (OpenAI, Google Gemini, etc.) |
-| **Memory** | Basic conversation history (enhancements planned) | Built-in conversation memory |
+| **Memory** | Comprehensive: Conversation history, vector-based long-term storage, and auto-consolidation/summarization | Built-in conversation memory and vector database integrations |
 | **Tool Integration** | HTTP, JS functions, Node-RED nodes | Any n8n node can be a tool |
 | **Agent Types** | Single agent type (extensible) | Multiple types (Tools Agent, Conversational Agent, etc.) |
-| **Planning** | Basic (enhancements planned) | Advanced planning with ReAct framework |
+| **Planning** | Basic (memory-enhanced context) | Advanced planning with ReAct framework |
 
 ## Development State
 | Aspect | Node-RED AI Agent | n8n Agent Node |
@@ -28,6 +28,7 @@
 ### Node-RED AI Agent
 - Tight Node-RED integration
 - Flexible message-based architecture
+- Advanced Memory System (Vector + Consolidation)
 - Easy to extend with custom tools
 - Lightweight and focused
 
