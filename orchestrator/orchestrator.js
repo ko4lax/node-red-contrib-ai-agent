@@ -64,9 +64,11 @@ module.exports = function (RED) {
                 msg.orchestration._running = true;
                 setImmediate(() => processNextStep(RED, node, msg, send, done));
             } catch (error) {
-                node.status({ fill: 'red', shape: 'ring', text: 'error' });
                 node.error(error.message, msg);
-                if (done) done(error);
+                msg.orchestration = msg.orchestration || {};
+                msg.orchestration.status = 'failed';
+                msg.orchestration.error = error && error.message ? error.message : String(error);
+                finalizeOrchestration(node, msg, send, done, error);
             }
         });
     }
@@ -155,9 +157,25 @@ module.exports = function (RED) {
     }
 
     function finalizeOrchestration(node, msg, send, done, error) {
+        send = send || function () { node.send.apply(node, arguments) };
+        msg.orchestration = msg.orchestration || {};
         msg.orchestration._running = false;
-        node.status({ fill: msg.orchestration.status === 'completed' ? 'green' : 'red', shape: 'dot', text: msg.orchestration.status });
-        send(msg);
+
+        const isSuccess = msg.orchestration.status === 'completed';
+        if (!isSuccess) {
+            const errorMessage = msg.orchestration.error || (error && error.message) || msg.error || 'Unknown error';
+            msg.error = errorMessage;
+            msg.orchestration.error = errorMessage;
+        }
+
+        node.status({
+            fill: isSuccess ? 'green' : 'red',
+            shape: 'dot',
+            text: msg.orchestration.status || (isSuccess ? 'completed' : 'failed')
+        });
+
+        const outputs = isSuccess ? [msg, null] : [null, msg];
+        send(outputs);
         if (done) done(error);
     }
 

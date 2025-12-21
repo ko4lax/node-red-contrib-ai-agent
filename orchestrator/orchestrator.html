@@ -13,8 +13,8 @@
             debug: { value: false }
         },
         inputs: 1,
-        outputs: 1,
-        outputLabels: ["Final Result"],
+        outputs: 2,
+        outputLabels: ["Success", "Failure"],
         icon: "font-awesome/fa-sitemap",
         label: function () {
             return this.name || "AI Orchestrator";
@@ -76,16 +76,20 @@
 
     <h3>Outputs</h3>
     <ol class="node-ports">
-        <li>Task Dispatch
+        <li>Success
             <dl class="message-properties">
-                <dt>msg.payload <span class="property-type">string</span></dt>
-                <dd>The instruction for the next task.</dd>
+                <dt>msg.payload <span class="property-type">string | object</span></dt>
+                <dd>The final successful result once the plan completes.</dd>
+                <dt>msg.orchestration <span class="property-type">object</span></dt>
+                <dd>Complete orchestration metadata and history.</dd>
             </dl>
         </li>
-        <li>Final Result
+        <li>Failure
             <dl class="message-properties">
+                 <dt>msg.error <span class="property-type">string</span></dt>
+                 <dd>Error message explaining why orchestration failed.</dd>
                  <dt>msg.orchestration <span class="property-type">object</span></dt>
-                 <dd>The full orchestration history and final result status.</dd>
+                 <dd>Orchestration state including failure details.</dd>
             </dl>
         </li>
     </ol>
@@ -98,5 +102,5 @@
         <li><strong>Priorities:</strong> Tasks with higher <code>priority</code> numbers are executed first.</li>
         <li><strong>Error Recovery:</strong> If a task fails, the orchestrator reflects on the error and can revise the plan to retry or try an alternative approach.</li>
     </ul>
-    <p>When the goal is achieved or max iterations are reached, the final message is sent to the second output.</p>
+    <p>The first output fires when the orchestration succeeds. All failure paths (validation errors, missing agents, iteration limits, plan errors, etc.) send a message out of the second output with <code>msg.error</code> describing the issue.</p>
 </script>

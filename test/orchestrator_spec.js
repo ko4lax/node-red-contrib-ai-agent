@@ -37,7 +37,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
     it('should discover agents and execute a simple plan', function (done) {
         const flow = [
             { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Coder', capabilities: 'coding', wires: [['orch1']] },
-            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1'], []] },
             { id: 'helper1', type: 'helper' }
         ];
 
@@ -83,7 +83,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
     it('should respect task dependencies', function (done) {
         const flow = [
             { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [['orch1']] },
-            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1'], []] },
             { id: 'helper1', type: 'helper' }
         ];
 
@@ -136,7 +136,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
     it('should respect task priorities', function (done) {
         const flow = [
             { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [['orch1']] },
-            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1'], []] },
             { id: 'helper1', type: 'helper' }
         ];
 
@@ -186,7 +186,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
     it('should handle task errors and recover', function (done) {
         const flow = [
             { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [['orch1']] },
-            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1'], []] },
             { id: 'helper1', type: 'helper' }
         ];
 
@@ -253,7 +253,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
     it('should tolerate non-JSON wrappers in planning response', function (done) {
         const flow = [
             { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Writer', capabilities: 'work', wires: [['orch1']] },
-            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1'], []] },
             { id: 'helper1', type: 'helper' }
         ];
 
@@ -306,7 +306,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
     it('should tolerate trailing commas in reflection JSON and continue', function (done) {
         const flow = [
             { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [['orch1']] },
-            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1'], []] },
             { id: 'helper1', type: 'helper' }
         ];
 
@@ -360,6 +360,36 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
                 payload: 'Trailing comma reflection',
                 aiagent: { apiKey: 'test-key', model: 'test-model' }
             });
+        });
+    });
+
+    it('should route failures to the second output', function (done) {
+        const flow = [
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['successHelper'], ['failureHelper']] },
+            { id: 'successHelper', type: 'helper' },
+            { id: 'failureHelper', type: 'helper' }
+        ];
+
+        helper.load(orchestratorNode, flow, function () {
+            const orchestrator = helper.getNode('orch1');
+            const successHelper = helper.getNode('successHelper');
+            const failureHelper = helper.getNode('failureHelper');
+
+            successHelper.on('input', function () {
+                done(new Error('Success output should not fire for validation failures'));
+            });
+
+            failureHelper.on('input', function (msg) {
+                try {
+                    msg.should.have.property('error').which.is.a.String();
+                    msg.orchestration.should.have.property('status', 'failed');
+                    done();
+                } catch (err) {
+                    done(err);
+                }
+            });
+
+            orchestrator.receive({ payload: 'Goal without AI config' });
         });
     });
 });
