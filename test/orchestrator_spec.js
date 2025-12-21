@@ -249,4 +249,57 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
             });
         });
     });
+
+    it('should tolerate non-JSON wrappers in planning response', function (done) {
+        const flow = [
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Writer', capabilities: 'work', wires: [['orch1']] },
+            { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
+            { id: 'helper1', type: 'helper' }
+        ];
+
+        const wrappedPlan = "```json\n" +
+            "{\n" +
+            "  // This is a comment that should be ignored\n" +
+            "  \"tasks\": [\n" +
+            "    {\"id\": \"t1\", \"type\": \"work\", \"input\": \"Line1\nLine2\", \"status\": \"pending\"}\n" +
+            "  ]\n" +
+            "}\n" +
+            "```";
+
+        axiosPostStub.onCall(0).resolves({
+            data: {
+                choices: [{
+                    message: {
+                        content: wrappedPlan
+                    }
+                }]
+            }
+        });
+        axiosPostStub.onCall(1).resolves({
+            data: { choices: [{ message: { content: "ok" } }] }
+        });
+        axiosPostStub.onCall(2).resolves({
+            data: { choices: [{ message: { content: JSON.stringify({ analysis: 'done', status: 'completed' }) } }] }
+        });
+
+        helper.load([orchestratorNode, agentOrchestratorNode], flow, function () {
+            const agent1 = helper.getNode('agent1');
+            const helper1 = helper.getNode('helper1');
+
+            helper1.on('input', function (msg) {
+                try {
+                    msg.orchestration.status.should.equal('completed');
+                    msg.payload.should.equal('ok');
+                    done();
+                } catch (err) {
+                    done(err);
+                }
+            });
+
+            agent1.receive({
+                payload: 'Plan wrappers',
+                aiagent: { apiKey: 'test-key', model: 'test-model' }
+            });
+        });
+    });
 });

@@ -148,7 +148,13 @@ Return a JSON object with a "tasks" array. Each task should have:
             prompt += `\n\nThink about parallel execution. Group related tasks and identify bottlenecks. Ensure dependencies are logical.`;
         }
 
-        prompt += `\n\nExample:
+        prompt += `\n\nIMPORTANT OUTPUT RULES:
+- Return ONLY raw JSON (no markdown, no code fences, no explanations)
+- Do NOT include comments (e.g. // ...)
+- Do NOT include trailing commas
+- All string values must be valid JSON strings (escape newlines as \\n if needed)
+
+Example:
 {
   "tasks": [
     {"id": "t1", "type": "research", "input": "...", "status": "pending", "priority": 10, "dependsOn": []},
@@ -160,7 +166,7 @@ Return a JSON object with a "tasks" array. Each task should have:
             node.warn("Prompt: " + prompt);
             const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that creates non-linear plans with dependencies.");
             node.warn("Response: " + response);
-            const planData = JSON.parse(extractJson(response));
+            const planData = parseJsonResponse(response);
             msg.orchestration.plan = planData;
             msg.orchestration.status = 'executing';
         } catch (error) {
@@ -218,7 +224,7 @@ Return a JSON object:
 
         try {
             const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that reflects on progress and manages plan revisions.");
-            const reflection = JSON.parse(extractJson(response));
+            const reflection = parseJsonResponse(response);
 
             msg.orchestration.status = reflection.status;
             if (reflection.updatedPlan) {
@@ -300,6 +306,108 @@ Return a JSON object:
     function extractJson(text) {
         const match = text.match(/\{[\s\S]*\}/);
         return match ? match[0] : text;
+    }
+
+    /**
+     * Parses a JSON object from an AI response, tolerating common non-JSON wrappers.
+     * @param {string} text - The AI response
+     * @returns {any} Parsed JSON
+     */
+    function parseJsonResponse(text) {
+        const extracted = extractJson(text);
+        try {
+            return JSON.parse(extracted);
+        } catch (_err) {
+            const sanitized = sanitizeJsonLikeText(extracted);
+            return JSON.parse(sanitized);
+        }
+    }
+
+    /**
+     * Removes markdown fences and JS-style comments, and escapes raw newlines inside string literals.
+     * This is a best-effort repair for model outputs that are "almost JSON".
+     * @param {string} input - A string that should contain a JSON object
+     * @returns {string} A JSON string more likely to be parseable by JSON.parse
+     */
+    function sanitizeJsonLikeText(input) {
+        if (typeof input !== 'string') return '';
+
+        // Remove common markdown code fences
+        let s = input
+            .replace(/^\s*```(?:json)?\s*/i, '')
+            .replace(/\s*```\s*$/i, '')
+            .trim();
+
+        // If we still have leading/trailing non-JSON, re-extract
+        s = extractJson(s).trim();
+
+        let out = '';
+        let inString = false;
+        let escape = false;
+        let inLineComment = false;
+
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            const next = i + 1 < s.length ? s[i + 1] : '';
+
+            if (inLineComment) {
+                if (ch === '\n') {
+                    inLineComment = false;
+                    out += ch;
+                }
+                continue;
+            }
+
+            if (!inString && ch === '/' && next === '/') {
+                inLineComment = true;
+                i++;
+                continue;
+            }
+
+            if (!inString && ch === '`') {
+                // ignore stray backticks
+                continue;
+            }
+
+            if (inString) {
+                if (escape) {
+                    out += ch;
+                    escape = false;
+                    continue;
+                }
+                if (ch === '\\') {
+                    out += ch;
+                    escape = true;
+                    continue;
+                }
+                if (ch === '"') {
+                    out += ch;
+                    inString = false;
+                    continue;
+                }
+                if (ch === '\n') {
+                    out += '\\n';
+                    continue;
+                }
+                if (ch === '\r') {
+                    // drop CR; newline will be handled by \n
+                    continue;
+                }
+                out += ch;
+                continue;
+            }
+
+            if (ch === '"') {
+                out += ch;
+                inString = true;
+                escape = false;
+                continue;
+            }
+
+            out += ch;
+        }
+
+        return out.trim();
     }
 
     RED.nodes.registerType('ai-orchestrator', AiOrchestratorNode);
