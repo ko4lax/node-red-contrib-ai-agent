@@ -69,10 +69,11 @@ class SimpleFileStorage {
         this.filePath = options.filePath;
         this.backupEnabled = options.backupEnabled !== false;
         this.backupCount = options.backupCount || 3;
+        this._writeQueue = Promise.resolve();
     }
 
     async save(data) {
-        try {
+        this._writeQueue = this._writeQueue.then(async () => {
             const dir = path.dirname(this.filePath);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
@@ -81,15 +82,27 @@ class SimpleFileStorage {
             data.metadata = data.metadata || {};
             data.metadata.lastUpdated = new Date().toISOString();
 
-            await fs.promises.writeFile(
-                this.filePath,
-                JSON.stringify(data, null, 2)
-            );
+            const tmpPath = `${this.filePath}.tmp`;
+            await fs.promises.writeFile(tmpPath, JSON.stringify(data, null, 2));
+
+            try {
+                await fs.promises.rename(tmpPath, this.filePath);
+            } catch (err) {
+                try {
+                    await fs.promises.unlink(this.filePath);
+                } catch (e) {
+                    // ignore
+                }
+                await fs.promises.rename(tmpPath, this.filePath);
+            }
 
             if (this.backupEnabled) {
                 await this.createBackup();
             }
+        });
 
+        try {
+            await this._writeQueue;
             return true;
         } catch (error) {
             return false;
@@ -427,7 +440,7 @@ module.exports = function (RED) {
             // Use send and done for Node-RED 1.0+ compatibility
             send = send || function () { node.send.apply(node, arguments) };
 
-            try {
+            node._inputQueue = (node._inputQueue || Promise.resolve()).then(async () => {
                 msg.aimemory = msg.aimemory || {};
 
                 if (msg.command) {
@@ -456,14 +469,16 @@ module.exports = function (RED) {
                     shape: "dot",
                     text: `${node.memoryManager.conversations.length} convs, ${node.memoryManager.longTerm.vectors.length} long-term`
                 });
-
-                if (done) done();
-            } catch (err) {
-
-                node.error("Error in memory node: " + err.message, msg);
-                node.status({ fill: "red", shape: "ring", text: "Error" });
-                if (done) done(err);
-            }
+            }).then(
+                () => {
+                    if (done) done();
+                },
+                (err) => {
+                    node.error("Error in memory node: " + err.message, msg);
+                    node.status({ fill: "red", shape: "ring", text: "Error" });
+                    if (done) done(err);
+                }
+            );
         });
 
         async function processCommand(node, msg) {

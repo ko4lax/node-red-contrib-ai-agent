@@ -23,7 +23,7 @@ describe('Chain Discovery & Zero-Wire Execution', function () {
 
     it('should discover agents in a pipeline and execute tasks directly', function (done) {
         const flow = [
-            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Coder', capabilities: 'coding', wires: [[], ['orch1']] },
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Coder', capabilities: 'coding', wires: [['orch1']] },
             { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
             { id: 'helper1', type: 'helper' }
         ];
