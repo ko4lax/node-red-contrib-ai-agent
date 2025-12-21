@@ -19,7 +19,7 @@ Your feedback and contributions are highly appreciated!
 ## Features
 
 - **AI Agent Node**: Process messages with AI, maintaining conversation context
-- **AI Agent Orchestrator Node**: Participates in orchestrated flows via Chain Discovery
+- **AI Orchestrator Agent Node**: Participates in orchestrated flows via Chain Discovery
 - **Memory Nodes**: 
   - **In-Memory**: Store conversation context in memory (volatile)
   - **File-based**: Persist conversation context to disk
@@ -62,7 +62,7 @@ Processes messages using the configured AI model and maintains conversation cont
 - **System Prompt**: Initial instructions for the AI
 - **Response Type**: Format of the response (text or JSON object)
 
-### AI Agent Orchestrator
+### AI Orchestrator Agent 
 A specialized version of the AI Agent designed for multi-agent workflows. It "tags" messages in a pipeline so the **AI Orchestrator** can discover it.
 
 **Properties:**
@@ -200,7 +200,7 @@ Each agent will maintain its own conversation context based on its memory config
 The AI Orchestrator can manage complex, multi-step tasks by utilizing specialized agents in a pipeline:
 
 1. Add an **AI Orchestrator** node.
-2. Add one or more **AI Agent Orchestrator** nodes (e.g., "Coder", "Researcher").
+2. Add one or more **AI Orchestrator Agent** nodes (e.g., "Coder", "Researcher").
 3. Connect them in a line: `[Inject Goal] --> [Coder] --> [Researcher] --> [Orchestrator] --> [Debug]`.
 4. The Orchestrator will automatically discover the "Coder" and "Researcher" via the message pipeline and call them as needed to achieve the goal.
 

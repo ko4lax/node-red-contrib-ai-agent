@@ -5,7 +5,7 @@ summary: How data moves through the Node-RED AI Agent system.
 tags: [data-flow, messaging, processing, patterns]
 created: 2025-12-21
 updated: 2025-12-21
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Data Flow
@@ -111,7 +111,9 @@ sequenceDiagram
     participant Model as AI Model
     participant Memory as Memory Node
     participant Tools as Tool Nodes
+    participant Discover as AI Orchestrator Agent
     participant Agent as AI Agent
+    participant Orch as AI Orchestrator
     participant AI as OpenRouter API
     participant Output as Output Node
     
@@ -121,7 +123,10 @@ sequenceDiagram
     Memory->>Memory: Add context
     Memory->>Tools: msg with aimemory
     Tools->>Tools: Register tools
-    Tools->>Agent: msg with tools
+    Tools->>Discover: msg with tools
+    Discover->>Discover: Append metadata to msg.agents
+    Discover->>Orch: msg with goal + agents
+    Orch->>Agent: Direct executeTask (zero-wire)
     Agent->>Agent: Prepare prompt
     Agent->>AI: API request
     AI->>Agent: Response with tool_calls
@@ -129,8 +134,9 @@ sequenceDiagram
     Tools->>Agent: Tool results
     Agent->>AI: Continue with results
     AI->>Agent: Final response
-    Agent->>Memory: Update context
-    Agent->>Output: Final message
+    Agent->>Orch: Task result
+    Orch->>Orch: Reflect & plan next task
+    Orch->>Output: Final message
 ```
 
 ## Detailed Processing Steps

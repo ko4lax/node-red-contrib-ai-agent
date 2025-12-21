@@ -5,7 +5,7 @@ summary: Detailed system architecture, design patterns, and key technical decisi
 tags: [architecture, design, patterns, technical]
 created: 2025-12-21
 updated: 2025-12-21
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Architecture
@@ -31,6 +31,7 @@ graph TB
         MODEL[AI Model Node]
         MEMORY[Memory Nodes]
         TOOLS[Tool Nodes]
+        DISCOVER[Orchestrator Agent Node]
         ORCH[Orchestrator Node]
     end
     
@@ -44,6 +45,7 @@ graph TB
     MODEL -->|AI Config| AGENT
     MEMORY -->|Context| AGENT
     TOOLS -->|Functions| AGENT
+    DISCOVER -->|Agents| ORCH
     ORCH -->|Plans| AGENT
     
     AGENT --> OPENROUTER
@@ -61,6 +63,7 @@ Each node type has a single, well-defined responsibility:
 - **AI Agent**: Core AI processing and conversation management
 - **Memory**: Context storage and retrieval
 - **Tools**: Extensible functionality
+- **Orchestrator Agent**: Discovers and registers team capabilities, exposes zero-wire execution API
 - **Orchestrator**: Multi-agent coordination
 
 ### 2. Stateless Design
@@ -197,7 +200,7 @@ Input → Model Config → Tool Registration → Agent Processing → Tool Execu
 ### 4. Orchestrated Flow
 
 ```
-Input → Model Config → Orchestrator Planning → Agent Execution → Result Reflection → Next Task
+Input → Model Config → Orchestrator Agent Discovery → Orchestrator Planning → Zero-Wire Agent Execution → Result Reflection → Next Task
 ```
 
 ## Key Technical Decisions
@@ -231,6 +234,16 @@ Input → Model Config → Orchestrator Planning → Agent Execution → Result 
 - Enables dynamic tool composition
 - Simplifies debugging and tracing
 - Supports conditional tool inclusion
+
+### 4. Chain Discovery Manifests
+
+**Decision**: Use AI Orchestrator Agent nodes to build `msg.agents` manifests in-line.
+
+**Rationale**:
+- Maintains visual clarity in Node-RED flows
+- Scopes teams per orchestrator without extra config panels
+- Allows orchestrator to validate capabilities before planning
+- Enables zero-wire execution by keeping node IDs readily available
 
 ### 4. Stateless Memory Nodes
 

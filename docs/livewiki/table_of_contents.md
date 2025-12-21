@@ -5,7 +5,7 @@ summary: Master index of all documentation pages in the Node-RED AI Agent wiki.
 tags: [index, navigation, contents]
 created: 2025-12-21
 updated: 2025-12-21
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Table of Contents
@@ -45,6 +45,7 @@ This page provides a comprehensive index of all documentation available for the 
 
 ### Advanced Nodes
 - [AI Orchestrator](modules/ai-orchestrator.md) - Multi-agent coordination
+- [AI Orchestrator Agent](modules/ai-orchestrator-agent.md) - Discovery + zero-wire execution companion node
 
 ## Reference Materials
 

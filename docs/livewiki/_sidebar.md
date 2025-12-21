@@ -24,6 +24,7 @@
   - [AI Tool HTTP](modules/ai-tool-http.md)
   - [AI Tool Approval](modules/ai-tool-approval.md)
   - [AI Orchestrator](modules/ai-orchestrator.md)
+  - [AI Orchestrator Agent](modules/ai-orchestrator-agent.md)
 
 - **Reference**
   - [LLM Context](llm-context.md)

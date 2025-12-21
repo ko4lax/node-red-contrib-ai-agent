@@ -87,7 +87,7 @@ module.exports = function (RED) {
 
                     const agentNode = RED.nodes.getNode(agentInfo.id);
                     if (!agentNode || typeof agentNode.executeTask !== 'function') {
-                        throw new Error(`Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Agent Orchestrator or is missing executeTask API.`);
+                        throw new Error(`Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Orchestrator Agent or is missing executeTask API.`);
                     }
 
                     node.status({ fill: 'blue', shape: 'ring', text: `agent: ${agentInfo.name}` });

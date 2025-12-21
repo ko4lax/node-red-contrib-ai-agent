@@ -5,55 +5,118 @@ summary: High-level introduction to the Node-RED AI Agent project.
 tags: [overview, introduction, getting-started]
 created: 2025-12-21
 updated: 2025-12-21
-version: 1.0.0
+version: 1.1.0
 ---
 
-# Node-RED AI Agent
+# Overview
 
-A powerful AI Agent for Node-RED that enables natural language processing with memory and tool integration. This package provides nodes for creating AI-powered flows with conversation context management and extensible tool integration.
+The Node-RED AI Agent is a comprehensive framework for integrating AI capabilities into Node-RED flows. It provides a modular, extensible system for building AI-powered automation with conversation context management, tool integration, and multi-agent orchestration.
 
-## Overview
+## System Architecture
 
-The Node-RED AI Agent is a comprehensive solution for integrating AI capabilities into Node-RED flows. It provides:
+```mermaid
+graph TB
+    subgraph "Input Layer"
+        IN[Input Message] --> MODEL[AI Model Node]
+    end
+    
+    subgraph "Configuration Layer"
+        MODEL -->|AI Config| AGENT[AI Agent Node]
+        MEMORY[Memory Config] -->|Context| AGENT
+        TOOLS[Tool Nodes] -->|Functions| AGENT
+    end
+    
+    subgraph "Processing Layer"
+        AGENT -->|Process| AI[AI Service]
+        AI -->|Response| AGENT
+        AGENT -->|Update| MEMORY
+    end
+    
+    subgraph "Output Layer"
+        AGENT --> OUT[Output Message]
+    end
+    
+    subgraph "Advanced Features"
+        AIOA[AI Orchestrator Agent] -->|Discovery Stream| ORCH[AI Orchestrator]
+        ORCH -->|Plan| AGENT
+        AGENT -->|Result| ORCH
+        APPROVAL[Tool Approval] -->|Human Input| AGENT
+    end
+```
 
-- **AI Agent Node**: Process messages with AI, maintaining conversation context
-- **Memory Nodes**: Store conversation context in memory (volatile) or persist to disk
-- **AI Model Node**: Configure AI models and API settings
-- **AI Orchestrator Node**: Coordinate multiple agents and create autonomous plans
-- **Tool Integration**: Extend functionality with custom tools
-- **Stateless Design**: Memory nodes are stateless, making them more reliable and scalable
+## Core Components
 
-## Key Features
+### AI Agent Node
+The central processing unit that:
+- Executes AI model calls with conversation context
+- Manages tool execution and response handling
+- Maintains conversation flow and state
+- Integrates with memory systems for context persistence
 
-- Natural language processing with configurable AI models
-- Conversation context management with automatic retention
-- Extensible tool system for custom functionality
-- Support for both in-memory and file-based memory storage
-- Multi-agent orchestration with autonomous planning
-- Human-in-the-loop approval workflows
-- Template variable support for dynamic content
+### Memory System
+Two types of memory configurations:
+- **In-Memory**: Volatile storage for temporary conversations
+- **File-based**: Persistent storage with backup and consolidation features
 
-## Quick Start
+### Tool System
+Extensible framework for AI agent capabilities:
+- **Function Tools**: Custom JavaScript functions
+- **HTTP Tools**: External API integration
+- **Approval Tools**: Human-in-the-loop workflows
 
-1. Install the package via the Node-RED palette manager
-2. Add an AI Model node to configure your OpenRouter API key and model
-3. Add a Memory node (In-Memory or File-based) to manage conversation context
-4. Add AI Tool nodes to define custom functions or HTTP requests
-5. Connect to an AI Agent node to process messages
+### AI Orchestrator
+Advanced multi-agent coordination:
+- Autonomous planning and execution
+- Task dependency management
+- Dynamic plan revision and error recovery
 
-## Architecture
+### AI Orchestrator Agent
+Discovery-oriented companion node that:
+- Tags `msg.agents` with its ID, name, and capabilities as messages flow downstream
+- Exposes an `executeTask()` method for zero-wire calls from the Orchestrator
+- Provides a simple pipeline output so teams can be composed visually
 
-The system follows a modular architecture with separate concerns:
+## Key Design Principles
 
-- **Agent**: Core AI processing logic
-- **Model**: AI model configuration and API management
-- **Memory**: Conversation context storage and retrieval
-- **Tools**: Extensible functionality for AI agents
-- **Orchestrator**: Multi-agent coordination and planning
+### Modularity
+Each component has a single responsibility and can be used independently or in combination with others.
+
+### Stateless Design
+Memory configurations are stateless, making the system more reliable and scalable across multiple instances.
+
+### Extensibility
+The tool system allows for unlimited custom functionality while maintaining a consistent interface.
+
+### Context Management
+Automatic conversation history management with configurable retention and consolidation strategies.
+
+## Data Flow
+
+1. **Input**: Messages enter through Node-RED input nodes
+2. **Configuration**: AI Model node adds API configuration to the message
+3. **Memory**: Optional memory nodes provide conversation context
+4. **Tools**: Tool nodes register available functions with the agent
+5. **Agent Discovery (optional)**: AI Orchestrator Agent nodes append their metadata to `msg.agents`, forming the roster available to orchestrators
+6. **Processing**: AI Agent processes the message with full context
+7. **Output**: Results are passed to downstream nodes
+
+## Use Cases
+
+### Simple Q&A
+Basic question-answering with optional conversation memory.
+
+### API Integration
+AI agents that can call external APIs and process responses.
+
+### Multi-Agent Workflows
+Complex tasks requiring coordination between multiple specialized agents.
+
+### Human-in-the-Loop
+Workflows requiring human approval or intervention at specific points.
 
 ## See Also
 
-- [Getting Started](getting_started.md) - Detailed installation and setup guide
-- [Architecture](architecture.md) - System architecture and design patterns
-- [API Reference](api_reference.md) - Complete API documentation
-- [Module Documentation](modules/) - Detailed documentation for each node type
+- [Getting Started](getting_started.md) - Installation and setup
+- [Architecture](architecture.md) - Detailed system architecture
+- [Data Flow](data_flow.md) - Message processing flow (now including agent discovery)
+- [Module Documentation](modules/) - Individual component documentation

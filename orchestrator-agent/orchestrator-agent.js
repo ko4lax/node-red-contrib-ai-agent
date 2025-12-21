@@ -65,7 +65,7 @@ function updateContext(msg, userMessage, assistantResponse) {
 function handleError(node, msg, error) {
     const errorMsg = error.response?.data?.error?.message || error.message || 'Unknown error';
     node.status({ fill: 'red', shape: 'ring', text: 'Error' });
-    node.error('AI Agent Orchestrator Error: ' + errorMsg, msg);
+    node.error('AI Orchestrator Agent Error: ' + errorMsg, msg);
 }
 
 /**
@@ -188,7 +188,7 @@ async function processToolCalls(node, responseMessage, tools, messages, aiConfig
 module.exports = function (RED) {
     function AIOrchestratorAgent(config) {
         RED.nodes.createNode(this, config);
-        this.name = config.name || 'AI Agent Orchestrator';
+        this.name = config.name || 'AI Orchestrator Agent';
         this.systemPrompt = config.systemPrompt || 'You are a helpful AI assistant.';
         this.capabilities = (config.capabilities || '').split(',').map(s => s.trim()).filter(Boolean);
 

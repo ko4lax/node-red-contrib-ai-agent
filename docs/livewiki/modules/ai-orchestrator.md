@@ -5,12 +5,12 @@ summary: Documentation for the AI Orchestrator node - multi-agent coordination a
 tags: [orchestrator, multi-agent, planning, autonomous]
 created: 2025-12-21
 updated: 2025-12-21
-version: 1.0.0
+version: 1.1.0
 ---
 
 # AI Orchestrator Module
 
-The AI Orchestrator node coordinates multiple AI agents by creating and executing autonomous plans using an observe-think-act-reflect cycle with task dependency management and dynamic plan revision.
+The AI Orchestrator node coordinates multiple AI agents by creating and executing autonomous plans using an observe-think-act-reflect cycle with task dependency management and dynamic plan revision. It operates as the execution brain in a **Chain Discovery** pipeline where upstream [AI Orchestrator Agent](ai-orchestrator-agent.md) nodes declare their capabilities before the goal reaches the orchestrator.
 
 ## Purpose and Responsibilities
 
@@ -79,11 +79,46 @@ The AI Orchestrator node serves as a higher-level coordination component that:
 - **Node-RED Runtime**: Version 1.0.0 or higher
 - **AI Agent Nodes**: Specialized agents for task execution
 - **AI Model Node**: Planning and reasoning capabilities
+- **AI Orchestrator Agent Nodes**: Register themselves in the discovery pipeline and expose an `executeTask()` API used by the orchestrator during zero-wire execution.
 
 ### Integration Points
+- **AI Orchestrator Agent Nodes**: Provide the roster of available teammates via `msg.agents`.
 - **AI Agent Nodes**: Task execution and specialized processing
 - **Memory Systems**: Plan and execution state persistence
 - **Tool Nodes**: Extended capabilities for agents
+
+## Integration with AI Orchestrator Agent
+
+Chain Discovery relies on at least one upstream `ai-orchestrator-agent` node that appends metadata to `msg.agents` as the message flows through the team-building pipeline:
+
+```json
+{
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Coder",
+      "capabilities": ["coding", "analysis"],
+      "type": "agent"
+    },
+    {
+      "id": "agent2",
+      "name": "Reviewer",
+      "capabilities": ["review"],
+      "type": "agent"
+    }
+  ]
+}
+```
+
+During execution the orchestrator selects a teammate whose `capabilities` entry matches the `type` field of the current task. It then calls `executeTask(input, msg)` directly through Node-RED's runtime registry—no external wiring is necessary.
+
+### Zero-Wire Safety Checks
+
+Before invoking an agent the orchestrator:
+
+1. Confirms that `msg.aiagent.apiKey` exists (shared AI credentials).
+2. Validates that the selected agent node exposes an `executeTask` function.
+3. Wraps tool/LLM failures so reflection logic can revise the plan or mark the task as failed.
 
 ## Configuration Options
 

@@ -5,7 +5,7 @@ summary: High-level architectural overview of the Node-RED AI Agent system.
 tags: [overview, architecture, introduction]
 created: 2025-12-21
 updated: 2025-12-21
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Overview
@@ -37,7 +37,8 @@ graph TB
     end
     
     subgraph "Advanced Features"
-        ORCH[AI Orchestrator] -->|Plan| AGENT
+        AIOA[AI Orchestrator Agent] -->|Discovery Stream| ORCH[AI Orchestrator]
+        ORCH -->|Plan| AGENT
         AGENT -->|Result| ORCH
         APPROVAL[Tool Approval] -->|Human Input| AGENT
     end
@@ -69,6 +70,12 @@ Advanced multi-agent coordination:
 - Task dependency management
 - Dynamic plan revision and error recovery
 
+### AI Orchestrator Agent
+Discovery-oriented companion node that:
+- Tags `msg.agents` with its ID, name, and capabilities as messages flow downstream
+- Exposes an `executeTask()` method for zero-wire calls from the Orchestrator
+- Provides a simple pipeline output so teams can be composed visually
+
 ## Key Design Principles
 
 ### Modularity
@@ -89,8 +96,9 @@ Automatic conversation history management with configurable retention and consol
 2. **Configuration**: AI Model node adds API configuration to the message
 3. **Memory**: Optional memory nodes provide conversation context
 4. **Tools**: Tool nodes register available functions with the agent
-5. **Processing**: AI Agent processes the message with full context
-6. **Output**: Results are passed to downstream nodes
+5. **Agent Discovery (optional)**: AI Orchestrator Agent nodes append their metadata to `msg.agents`, forming the roster available to orchestrators
+6. **Processing**: AI Agent processes the message with full context
+7. **Output**: Results are passed to downstream nodes
 
 ## Use Cases
 
@@ -110,5 +118,5 @@ Workflows requiring human approval or intervention at specific points.
 
 - [Getting Started](getting_started.md) - Installation and setup
 - [Architecture](architecture.md) - Detailed system architecture
-- [Data Flow](data_flow.md) - Message processing flow
+- [Data Flow](data_flow.md) - Message processing flow (now including agent discovery)
 - [Module Documentation](modules/) - Individual component documentation

@@ -9,7 +9,7 @@ flowchart LR
     A[Input Node] -->|msg| B[AI Model Node]
     B -->|msg { aiagent }| M[AI Memory Node]
     M -->|msg { aiagent, aimemory }| C[AI Tool Node]
-    C -->|msg { aiagent, aimemory, tools }| AO[AI Agent Orchestrator]
+    C -->|msg { aiagent, aimemory, tools }| AO[AI Orchestrator Agent]
     AO -->|msg { agents }| O[AI Orchestrator Node]
     O -.->|Direct Call| AO
     O -->|final response| E[Output Node]
@@ -156,7 +156,7 @@ flowchart LR
    - **Reflection**: Evaluates progress and refines the plan dynamically.
    - **Output**: Sends the final completed result to its single output port.
 
-5. **AI Agent Orchestrator Processing**
+5. **AI Orchestrator Agent Processing**
    - **Pipeline Mode**: When a message passes through, it appends its metadata (Node ID and Skills) to the `msg.agents` array.
    - **Execution Mode**: When called by the Orchestrator, it performs the AI task and returns the result directly to the caller.
 
