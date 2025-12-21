@@ -14,9 +14,18 @@ module.exports = function (RED) {
         const node = this;
 
         this.name = config.name || 'AI Orchestrator';
-        this.maxIterations = parseInt(config.maxIterations) || 5;
-        this.planningStrategy = config.planningStrategy || 'simple';
+        this.maxIterations = normalizePositiveInt(config.maxIterations, 5, 1, 100);
+        this.planningStrategy = (config.planningStrategy || 'simple');
         this.defaultGoal = config.defaultGoal || '';
+        this.maxHistory = normalizePositiveInt(config.maxHistory, 50, 1, 1000);
+        this.providerBaseUrl = String(config.providerBaseUrl || 'https://openrouter.ai/api/v1');
+        this.timeoutMs = normalizePositiveInt(config.timeoutMs, 30000, 1000, 300000);
+        this.debug = !!config.debug;
+
+        const configErrors = validateNodeConfig(node);
+        if (configErrors.length > 0) {
+            node.error(configErrors.join('; '));
+        }
 
         node.on('input', async function (msg, send, done) {
             send = send || function () { node.send.apply(node, arguments) };
@@ -38,88 +47,116 @@ module.exports = function (RED) {
                         history: [],
                         plan: null
                     };
-                } else {
-                    msg.orchestration.iterations++;
                 }
 
-                // Check for max iterations
-                if (msg.orchestration.iterations >= node.maxIterations) {
-                    node.warn('Max iterations reached');
-                    msg.orchestration.status = 'failed';
-                    msg.orchestration.error = 'Max iterations reached';
-                    node.status({ fill: 'red', shape: 'dot', text: 'max iterations' });
-                    send(msg);
+                const messageErrors = validateMessage(msg, node);
+                if (messageErrors.length > 0) {
+                    throw new Error(messageErrors.join('; '));
+                }
+
+                if (msg.orchestration._running) {
                     if (done) done();
                     return;
                 }
 
-                // AI Configuration check
-                if (!msg.aiagent || !msg.aiagent.apiKey) {
-                    throw new Error('AI Model configuration missing or API key not found.');
-                }
-
-                // Inner loop for Zero-Wire execution
-                while (msg.orchestration.status !== 'completed' && msg.orchestration.status !== 'failed') {
-
-                    // 1. Planning Phase
-                    if (msg.orchestration.status === 'planning' || !msg.orchestration.plan) {
-                        node.status({ fill: 'blue', shape: 'dot', text: 'planning...' });
-                        await createInitialPlan(node, msg);
-                    }
-
-                    // 2. Find Next Task
-                    const nextTask = getNextTask(msg.orchestration.plan);
-                    if (!nextTask) {
-                        msg.orchestration.status = 'completed';
-                        break;
-                    }
-
-                    // 3. Execution Phase (Direct Call)
-                    msg.orchestration.currentTaskId = nextTask.id;
-                    const agentInfo = selectAgentForTask(msg.orchestration, nextTask);
-
-                    if (!agentInfo) {
-                        node.warn(`No registered agent found for capability: ${nextTask.type}`);
-                        msg.error = `Capability not provided by any wired agent: ${nextTask.type}`;
-                        msg.payload = null;
-                    } else {
-                        const agentNode = RED.nodes.getNode(agentInfo.id);
-                        if (!agentNode || typeof agentNode.executeTask !== 'function') {
-                            msg.error = `Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Orchestrator Agent or is missing executeTask API.`;
-                            msg.payload = null;
-                        } else {
-                            node.status({ fill: 'blue', shape: 'ring', text: `agent: ${agentInfo.name}` });
-                            try {
-                                const result = await agentNode.executeTask(nextTask.input, msg);
-                                msg.payload = result;
-                                msg.error = null;
-                            } catch (err) {
-                                // Strip 'AI API Error: ' prefix if present to match test expectations
-                                let errorMessage = err.message;
-                                if (errorMessage.startsWith('AI API Error: ')) {
-                                    errorMessage = errorMessage.substring('AI API Error: '.length);
-                                }
-                                msg.error = errorMessage;
-                            }
-                        }
-                    }
-
-                    // 4. Reflection Phase
-                    node.status({ fill: 'blue', shape: 'dot', text: 'reflecting...' });
-                    await reflectAndRefine(node, msg);
-                }
-
-                // Final Output
-                node.status({ fill: 'green', shape: 'dot', text: msg.orchestration.status });
-                send(msg);
-
-                if (done) done();
+                msg.orchestration._running = true;
+                setImmediate(() => processNextStep(RED, node, msg, send, done));
             } catch (error) {
                 node.status({ fill: 'red', shape: 'ring', text: 'error' });
                 node.error(error.message, msg);
                 if (done) done(error);
             }
         });
+    }
+
+    async function processNextStep(RED, node, msg, send, done) {
+        try {
+            if (!msg.orchestration) {
+                msg.orchestration = { status: 'failed', error: 'Orchestration state missing' };
+            }
+
+            if (msg.orchestration.status === 'completed' || msg.orchestration.status === 'failed') {
+                finalizeOrchestration(node, msg, send, done);
+                return;
+            }
+
+            if (msg.orchestration.iterations >= node.maxIterations) {
+                msg.orchestration.status = 'failed';
+                msg.orchestration.error = 'Max iterations reached';
+                node.status({ fill: 'red', shape: 'dot', text: 'max iterations' });
+                finalizeOrchestration(node, msg, send, done);
+                return;
+            }
+
+            if (msg.orchestration.status === 'planning' || !msg.orchestration.plan) {
+                node.status({ fill: 'blue', shape: 'dot', text: 'planning...' });
+                await createInitialPlan(node, msg);
+
+                const planErrors = validatePlan(msg.orchestration.plan, msg.orchestration.availableAgents || []);
+                if (planErrors.length > 0) {
+                    msg.orchestration.status = 'failed';
+                    msg.orchestration.error = planErrors.join('; ');
+                    node.status({ fill: 'red', shape: 'ring', text: 'plan invalid' });
+                    finalizeOrchestration(node, msg, send, done);
+                    return;
+                }
+
+                setImmediate(() => processNextStep(RED, node, msg, send, done));
+                return;
+            }
+
+            const nextTask = getNextTask(msg.orchestration.plan);
+            if (!nextTask) {
+                msg.orchestration.status = 'completed';
+                finalizeOrchestration(node, msg, send, done);
+                return;
+            }
+
+            msg.orchestration.currentTaskId = nextTask.id;
+            const agentInfo = selectAgentForTask(msg.orchestration, nextTask);
+
+            if (!agentInfo) {
+                msg.error = `Capability not provided by any wired agent: ${nextTask.type}`;
+                msg.payload = null;
+            } else {
+                const agentNode = RED.nodes.getNode(agentInfo.id);
+                if (!agentNode || typeof agentNode.executeTask !== 'function') {
+                    msg.error = `Agent node ${agentInfo.name} [${agentInfo.id}] is not an AI Orchestrator Agent or is missing executeTask API.`;
+                    msg.payload = null;
+                } else {
+                    node.status({ fill: 'blue', shape: 'ring', text: `agent: ${agentInfo.name}` });
+                    try {
+                        const result = await agentNode.executeTask(nextTask.input, msg);
+                        msg.payload = result;
+                        msg.error = null;
+                    } catch (err) {
+                        let errorMessage = err && err.message ? err.message : String(err);
+                        if (errorMessage.startsWith('AI API Error: ')) {
+                            errorMessage = errorMessage.substring('AI API Error: '.length);
+                        }
+                        msg.error = errorMessage;
+                    }
+                }
+            }
+
+            node.status({ fill: 'blue', shape: 'dot', text: 'reflecting...' });
+            await reflectAndRefine(node, msg);
+            msg.orchestration.iterations++;
+
+            setImmediate(() => processNextStep(RED, node, msg, send, done));
+        } catch (error) {
+            msg.orchestration.status = 'failed';
+            msg.orchestration.error = error && error.message ? error.message : String(error);
+            node.status({ fill: 'red', shape: 'ring', text: 'error' });
+            finalizeOrchestration(node, msg, send, done, error);
+        }
+    }
+
+    function finalizeOrchestration(node, msg, send, done, error) {
+        msg.orchestration._running = false;
+        node.status({ fill: msg.orchestration.status === 'completed' ? 'green' : 'red', shape: 'dot', text: msg.orchestration.status });
+        send(msg);
+        if (done) done(error);
     }
 
     /**
@@ -172,9 +209,9 @@ Example:
 }`;
 
         try {
-            node.warn("Prompt: " + prompt);
-            const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that creates non-linear plans with dependencies.");
-            node.warn("Response: " + response);
+            debugLog(node, 'Planning Prompt', prompt);
+            const response = await callAI(node, msg.aiagent, prompt, "You are an AI Orchestrator that creates non-linear plans with dependencies.");
+            debugLog(node, 'Planning Response', response);
             const planData = parseJsonResponse(response);
             msg.orchestration.plan = planData;
             msg.orchestration.status = 'executing';
@@ -200,6 +237,10 @@ Example:
             error: msg.error,
             timestamp: new Date().toISOString()
         });
+
+        if (Array.isArray(msg.orchestration.history) && msg.orchestration.history.length > node.maxHistory) {
+            msg.orchestration.history = msg.orchestration.history.slice(-node.maxHistory);
+        }
 
         // Update task status in plan
         const task = msg.orchestration.plan.tasks.find(t => t.id === currentTaskId);
@@ -253,7 +294,7 @@ Return a JSON object:
 }`;
 
         try {
-            const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that reflects on progress and manages plan revisions.");
+            const response = await callAI(node, msg.aiagent, prompt, "You are an AI Orchestrator that reflects on progress and manages plan revisions.");
             const reflection = parseJsonResponse(response);
 
             msg.orchestration.status = reflection.status;
@@ -336,9 +377,9 @@ Return a JSON object:
      * @returns {Promise<string>} The AI response content
      * @throws {Error} If API call fails
      */
-    async function callAI(aiConfig, prompt, systemPrompt) {
+    async function callAI(node, aiConfig, prompt, systemPrompt) {
         const response = await axios.post(
-            'https://openrouter.ai/api/v1/chat/completions',
+            buildChatCompletionsUrl(node, aiConfig),
             {
                 model: aiConfig.model,
                 messages: [
@@ -350,11 +391,26 @@ Return a JSON object:
             {
                 headers: {
                     'Authorization': `Bearer ${aiConfig.apiKey}`,
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://nodered.org/',
+                    'X-Title': 'Node-RED AI Orchestrator'
+                },
+                timeout: getTimeoutMs(node, aiConfig)
             }
         );
         return response.data.choices[0]?.message?.content || '';
+    }
+
+    function buildChatCompletionsUrl(node, aiConfig) {
+        const baseUrl = (aiConfig && aiConfig.baseUrl) ? String(aiConfig.baseUrl) : String(node.providerBaseUrl);
+        return baseUrl.replace(/\/+$/, '') + '/chat/completions';
+    }
+
+    function getTimeoutMs(node, aiConfig) {
+        if (aiConfig && aiConfig.timeoutMs !== undefined) {
+            return normalizePositiveInt(aiConfig.timeoutMs, node.timeoutMs, 1000, 300000);
+        }
+        return node.timeoutMs;
     }
 
     /**
@@ -467,6 +523,155 @@ Return a JSON object:
         }
 
         return out.trim();
+    }
+
+    function debugLog(node, label, payload) {
+        if (!node || !node.debug || typeof node.warn !== 'function') return;
+        try {
+            const serialized = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+            node.warn(`[AI Orchestrator] ${label}: ${serialized}`);
+        } catch (_err) {
+            node.warn(`[AI Orchestrator] ${label}: [unserializable payload]`);
+        }
+    }
+
+    function normalizePositiveInt(value, fallback, min, max) {
+        const n = parseInt(value);
+        if (!Number.isFinite(n)) return fallback;
+        if (n < min) return min;
+        if (n > max) return max;
+        return n;
+    }
+
+    function validateNodeConfig(node) {
+        const errors = [];
+        if (!['simple', 'advanced'].includes(String(node.planningStrategy))) {
+            errors.push('planningStrategy must be "simple" or "advanced"');
+        }
+        if (!String(node.providerBaseUrl || '').trim()) {
+            errors.push('providerBaseUrl must be a non-empty string');
+        }
+        return errors;
+    }
+
+    function validateMessage(msg, node) {
+        const errors = [];
+        if (!msg || typeof msg !== 'object') {
+            errors.push('msg must be an object');
+            return errors;
+        }
+        if (!msg.aiagent) {
+            errors.push('AI Model configuration missing (msg.aiagent)');
+            return errors;
+        }
+        if (!msg.aiagent.apiKey || !String(msg.aiagent.apiKey).trim()) {
+            errors.push('AI Model API key not found (msg.aiagent.apiKey)');
+        }
+        if (!msg.aiagent.model || !String(msg.aiagent.model).trim()) {
+            errors.push('AI Model not found (msg.aiagent.model)');
+        }
+        if (msg.orchestration && (!msg.orchestration.goal || !String(msg.orchestration.goal).trim())) {
+            errors.push('Orchestration goal is empty');
+        }
+        return errors;
+    }
+
+    function validatePlan(plan, availableAgents) {
+        const errors = [];
+        if (!plan || typeof plan !== 'object') {
+            errors.push('Plan is missing');
+            return errors;
+        }
+        if (!Array.isArray(plan.tasks)) {
+            errors.push('Plan.tasks must be an array');
+            return errors;
+        }
+
+        const allowedCapabilities = new Set(
+            (availableAgents || [])
+                .flatMap(a => Array.isArray(a.capabilities) ? a.capabilities : [])
+                .map(c => String(c))
+        );
+
+        const idSet = new Set();
+        for (const task of plan.tasks) {
+            if (!task || typeof task !== 'object') {
+                errors.push('Task must be an object');
+                continue;
+            }
+            if (!task.id || !String(task.id).trim()) {
+                errors.push('Task.id is required');
+            } else {
+                const id = String(task.id);
+                if (idSet.has(id)) errors.push(`Duplicate task id: ${id}`);
+                idSet.add(id);
+            }
+            if (!task.type || !String(task.type).trim()) {
+                errors.push(`Task ${String(task.id || '?')} is missing type`);
+            } else if (allowedCapabilities.size > 0 && !allowedCapabilities.has(String(task.type))) {
+                errors.push(`Task ${String(task.id || '?')} has unsupported type: ${String(task.type)}`);
+            }
+            if (!task.status) {
+                task.status = 'pending';
+            }
+            if (!['pending', 'completed', 'failed'].includes(String(task.status))) {
+                errors.push(`Task ${String(task.id || '?')} has invalid status: ${String(task.status)}`);
+            }
+            if (!Array.isArray(task.dependsOn)) {
+                task.dependsOn = task.dependsOn ? [task.dependsOn] : [];
+            }
+        }
+
+        for (const task of plan.tasks) {
+            for (const depId of (task.dependsOn || [])) {
+                const dep = String(depId);
+                if (!idSet.has(dep)) {
+                    errors.push(`Task ${String(task.id || '?')} depends on non-existent task ${dep}`);
+                }
+            }
+        }
+
+        const cycle = findDependencyCycle(plan.tasks);
+        if (cycle) {
+            errors.push(`Circular dependencies detected: ${cycle.join(' -> ')}`);
+        }
+
+        return errors;
+    }
+
+    function findDependencyCycle(tasks) {
+        const graph = new Map();
+        for (const t of tasks || []) {
+            if (!t || !t.id) continue;
+            graph.set(String(t.id), (t.dependsOn || []).map(String));
+        }
+
+        const visiting = new Set();
+        const visited = new Set();
+
+        function dfs(nodeId, path) {
+            if (visiting.has(nodeId)) {
+                const idx = path.indexOf(nodeId);
+                return idx >= 0 ? path.slice(idx).concat([nodeId]) : path.concat([nodeId]);
+            }
+            if (visited.has(nodeId)) return null;
+
+            visiting.add(nodeId);
+            visited.add(nodeId);
+            const deps = graph.get(nodeId) || [];
+            for (const dep of deps) {
+                const result = dfs(dep, path.concat([nodeId]));
+                if (result) return result;
+            }
+            visiting.delete(nodeId);
+            return null;
+        }
+
+        for (const nodeId of graph.keys()) {
+            const result = dfs(nodeId, []);
+            if (result) return result;
+        }
+        return null;
     }
 
     RED.nodes.registerType('ai-orchestrator', AiOrchestratorNode);

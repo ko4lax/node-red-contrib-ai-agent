@@ -6,7 +6,11 @@
             name: { value: "" },
             maxIterations: { value: 5, validate: RED.validators.number() },
             planningStrategy: { value: "simple" },
-            defaultGoal: { value: "" }
+            defaultGoal: { value: "" },
+            maxHistory: { value: 50, validate: RED.validators.number() },
+            providerBaseUrl: { value: "https://openrouter.ai/api/v1" },
+            timeoutMs: { value: 30000, validate: RED.validators.number() },
+            debug: { value: false }
         },
         inputs: 1,
         outputs: 1,
@@ -38,6 +42,22 @@
     <div class="form-row">
         <label for="node-input-defaultGoal"><i class="fa fa-bullseye"></i> Default Goal</label>
         <textarea id="node-input-defaultGoal" style="width: 100%" rows="3" placeholder="Optional default goal for the orchestrator"></textarea>
+    </div>
+    <div class="form-row">
+        <label for="node-input-maxHistory"><i class="fa fa-history"></i> Max History</label>
+        <input type="number" id="node-input-maxHistory" placeholder="50">
+    </div>
+    <div class="form-row">
+        <label for="node-input-providerBaseUrl"><i class="fa fa-globe"></i> Provider Base URL</label>
+        <input type="text" id="node-input-providerBaseUrl" placeholder="https://openrouter.ai/api/v1">
+    </div>
+    <div class="form-row">
+        <label for="node-input-timeoutMs"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <input type="number" id="node-input-timeoutMs" placeholder="30000">
+    </div>
+    <div class="form-row">
+        <label for="node-input-debug"><i class="fa fa-bug"></i> Debug</label>
+        <input type="checkbox" id="node-input-debug" style="width:auto">
     </div>
 </script>
 
