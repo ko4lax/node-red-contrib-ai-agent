@@ -23,6 +23,7 @@ Your feedback and contributions are highly appreciated!
   - **In-Memory**: Store conversation context in memory (volatile)
   - **File-based**: Persist conversation context to disk
 - **AI Model Node**: Configure AI models and API settings
+- **AI Orchestrator Node**: Coordinate multiple agents and create autonomous plans
 - **Tool Integration**: Extend functionality with custom tools
 - **Stateless Design**: Memory nodes are stateless, making them more reliable and scalable
 - **Context Management**: Automatic conversation history management with configurable retention
@@ -87,6 +88,15 @@ Configures the AI model and API settings.
 **Properties:**
 - **Model**: The AI model to use (e.g., gpt-4, claude-3-opus)
 - **API Key**: Your OpenRouter API key
+- **Name**: Display name for the node
+
+### AI Orchestrator
+Coordinates multiple AI agents by creating and executing plans. It uses an autonomy loop (observe-think-act-reflect) to achieve complex goals.
+
+**Properties:**
+- **Max Iterations**: Maximum cycles for the autonomy loop
+- **Planning Strategy**: Simple (linear) or Advanced
+- **Default Goal**: Optional fallback goal
 - **Name**: Display name for the node
 
 ### AI Tool Function
@@ -158,6 +168,18 @@ For more complex scenarios, you can chain multiple agents to process messages in
 4. Connect your flow: `[Input] --> [AI Model] --> [AI Memory] --> [Agent 1] --> [Agent 2] --> [Output]`
 
 Each agent will maintain its own conversation context based on its memory configuration.
+
+## Example: Autonomous Orchestration
+
+The AI Orchestrator can manage complex, multi-step tasks:
+
+1. Add an **AI Orchestrator** node
+2. Connect its first output to an **AI Agent**
+3. Connect the agent's output back to the **AI Orchestrator** input
+4. Connect the orchestrator's second output to a **Debug** node
+5. Configure the orchestrator with a goal (e.g., "Write a blog post and then translate it to Spanish")
+
+The orchestrator will create a plan, dispatch the first task to the agent, reflect on the result, and then dispatch the next task until completion.
 
 ## Best Practices
 

@@ -9,8 +9,10 @@ flowchart LR
     A[Input Node] -->|msg| B[AI Model Node]
     B -->|msg { aiagent }| M[AI Memory Node]
     M -->|msg { aiagent, aimemory }| C[AI Tool Node]
-    C -->|msg { aiagent, aimemory }| D[AI Agent Node]
-    D -->|processed response| E[Output Node]
+    C -->|msg { aiagent, aimemory, tools }| O[AI Orchestrator Node]
+    O -->|msg { orchestration }| D[AI Agent Node]
+    D -->|loop back| O
+    O -->|final response| E[Output Node]
 
     subgraph AI Model Node
     B1[Input: msg] --> B2[Add AI Configuration]
@@ -147,13 +149,21 @@ flowchart LR
    - Each tool includes a name, description, and execute function
    - Multiple AI Tool nodes can be chained to add multiple tools
 
-4. **AI Agent Processing**
-   - Receives the enhanced message with both `msg.aiagent` configuration and `msg.aiagent.tools`
-   - Uses the specified AI model and tools to process the input
-   - Can maintain conversation context if configured
-   - Generates a response based on the agent type and available tools
+4. **AI Orchestrator Processing**
+   - Receives the message with `msg.aiagent`, `msg.aimemory`, and `msg.tools`.
+   - **Planning**: If no plan exists, uses AI to decompose the goal into tasks.
+   - **Dispatching**: Sends the next pending task to output 1.
+   - **Reflection**: If a task result is returned, evaluates it and updates the plan.
+   - **Looping**: Directs the flow back to AI agents until the goal is met or max iterations reached.
+   - **Output**: Sends the final orchestration result to output 2.
 
-4. **Output**
+5. **AI Agent Processing**
+   - Receives the enhanced message with configuration, tools, and orchestration context.
+   - Uses the specified AI model and tools to process the task.
+   - Can maintain conversation context if configured.
+   - Generates a response based on the current step defined by the orchestrator.
+
+6. **Output**
    - Returns the AI's response in the message payload
    - Format depends on the agent's configuration (text or structured object)
    - Original message properties are preserved unless modified
@@ -169,6 +179,23 @@ In this flow:
 2. AI Model adds configuration to the message
 3. AI Agent processes the message using the specified AI model
 4. Debug node displays the AI's response
+
+## Autonomous Flow
+
+```
+[inject] --> [AI Model] --> [AI Orchestrator] --> [AI Agent] 
+                                    ^               |
+                                    └───────────────┘
+                                           |
+                                       [debug]
+```
+
+In this autonomous loop:
+1. **AI Orchestrator** creates a plan based on the goal.
+2. It sends the first task to the **AI Agent**.
+3. The **AI Agent** executes the task and sends the result back to the orchestrator.
+4. **AI Orchestrator** reflects on the result and decides whether to continue or finish.
+5. If continuing, it sends the next task; if finished, it sends the result to the debug node.
 
 ## Error Handling
 
