@@ -94,12 +94,12 @@ function formatToolsForAPI(tools) {
  * Helper for conditional debug logging
  */
 function debugLog(node, label, payload) {
-    if (!node?.enableDebug || typeof node.debug !== 'function') return;
+    if (!node?.enableDebug || typeof node.warn !== 'function') return;
     try {
         const serialized = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-        node.debug(`[AI Orchestrator Agent] ${label}: ${serialized}`);
+        node.warn(`[AI Orchestrator Agent] ${label}: ${serialized}`);
     } catch (err) {
-        node.debug(`[AI Orchestrator Agent] ${label}: [unserializable payload]`);
+        node.warn(`[AI Orchestrator Agent] ${label}: [unserializable payload]`);
     }
 }
 
