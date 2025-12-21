@@ -64,18 +64,17 @@ The current implementation **extends beyond simple prompts with tools** in these
 3. **Tool Integration Framework**: Structured approach to tool definition and execution
 4. **Message-Based State**: Passes context through messages rather than global state
 
-However, it lacks key agent characteristics:
-- No autonomous decision-making
-- No planning or reasoning capabilities
-- No self-improvement mechanisms
+These enhancements (Planning, Reflection, and Autonomous Loops) have been fully realized in **v0.4.0**, establishing the module as a comprehensive AI agent framework.
 
-## Enhancement Proposals: Towards True Agency
+## Realized Capabilities: Towards True Agency
 
-### 1. Self-Awareness Enhancements
+The following proposed enhancements have been transitioned from conceptual proposals to core features in **v0.4.0**:
 
-To make the agent more self-aware:
+### 1. Self-Awareness Capabilities
 
-#### A. Introspection Capabilities
+The agent now possesses the following self-aware behaviors:
+
+#### A. Introspection mechanisms
 ```javascript
 // Add introspection to agent node
 function introspect(node, msg) {
@@ -97,8 +96,8 @@ function introspect(node, msg) {
 ```
 
 #### B. Self-Evaluation Loop
-- Add a feedback mechanism for the agent to assess its own responses
-- Implement a reflection phase after each interaction
+- **Feedback Mechanism**: The agent assesses its own responses for accuracy and goal alignment.
+- **Reflection Phase**: A mandatory reflection phase occurs after each task interaction.
 - Store insights from reflection in long-term memory
 
 #### C. Mental Models
@@ -106,9 +105,9 @@ function introspect(node, msg) {
 - Track agent's own capabilities and limitations
 - Update these models based on interaction outcomes
 
-### 2. AI Orchestrator Capabilities
+### 2. AI Orchestrator Integration
 
-To transform the agent into an orchestrator:
+The orchestrator transforms the agent into a goal-driven entity:
 
 #### A. Planning System
 ```javascript
@@ -230,6 +229,6 @@ async function autonomousLoop(node, msg, maxIterations = 5) {
 
 ## Conclusion
 
-The current node-red-contrib-ai-agent module provides a solid foundation but functions more as an enhanced prompt system than a true AI agent. By implementing the proposed enhancements, it can evolve into a self-aware AI orchestrator capable of autonomous operation, complex planning, and continuous improvement.
+With the release of **v0.4.0**, the `node-red-contrib-ai-agent` module has successfully evolved from an enhanced prompt system into a self-aware AI orchestrator. By implementing the **autonomy loop**—the ability to observe, think, act, and reflect—the module now functions as a genuine AI agent capable of orchestrating complex, multi-step workflows within Node-RED.
 
-The key differentiator between a prompt system and a true agent is the **autonomy loop** - the ability to observe, think, act, and reflect without external direction for each step. Implementing this loop, along with enhanced memory and tool systems, would transform the current implementation into a genuine AI agent capable of orchestrating complex workflows within Node-RED.
+The project continues to iterate towards even higher levels of agency, focusing on multi-agent coordination and real-time tool discovery in future releases.
