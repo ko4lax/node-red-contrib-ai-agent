@@ -1,7 +1,7 @@
 const should = require('should');
 const helper = require('node-red-node-test-helper');
 const orchestratorNode = require('../orchestrator/orchestrator.js');
-const agentOrchestratorNode = require('../agent-orchestrator/agent-orchestrator.js');
+const agentOrchestratorNode = require('../orchestrator-agent/orchestrator-agent.js');
 const axios = require('axios');
 const sinon = require('sinon');
 
@@ -36,7 +36,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
 
     it('should discover agents and execute a simple plan', function (done) {
         const flow = [
-            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Coder', capabilities: 'coding', wires: [[], ['orch1']] },
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Coder', capabilities: 'coding', wires: [[], ['orch1']] },
             { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
             { id: 'helper1', type: 'helper' }
         ];
@@ -82,7 +82,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
 
     it('should respect task dependencies', function (done) {
         const flow = [
-            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
             { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
             { id: 'helper1', type: 'helper' }
         ];
@@ -135,7 +135,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
 
     it('should respect task priorities', function (done) {
         const flow = [
-            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
             { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
             { id: 'helper1', type: 'helper' }
         ];
@@ -185,7 +185,7 @@ describe('ai-orchestrator node (Chain Discovery)', function () {
 
     it('should handle task errors and recover', function (done) {
         const flow = [
-            { id: 'agent1', type: 'ai-agent-orchestrator', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
+            { id: 'agent1', type: 'ai-orchestrator-agent', name: 'Agent', capabilities: 'work', wires: [[], ['orch1']] },
             { id: 'orch1', type: 'ai-orchestrator', name: 'Manager', wires: [['helper1']] },
             { id: 'helper1', type: 'helper' }
         ];

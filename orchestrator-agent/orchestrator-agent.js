@@ -120,7 +120,7 @@ async function callAI(node, aiConfig, messages) {
                     'Authorization': `Bearer ${aiConfig.apiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://nodered.org/',
-                    'X-Title': 'Node-RED AI Agent-Orchestrator'
+                    'X-Title': 'Node-RED AI Orchestrator-Agent'
                 }
             }
         );
@@ -186,10 +186,8 @@ async function processToolCalls(node, responseMessage, tools, messages, aiConfig
 }
 
 module.exports = function (RED) {
-    function AiAgentOrchestratorNode(config) {
+    function AIOrchestratorAgent(config) {
         RED.nodes.createNode(this, config);
-        const node = this;
-
         this.name = config.name || 'AI Agent Orchestrator';
         this.systemPrompt = config.systemPrompt || 'You are a helpful AI assistant.';
         this.capabilities = (config.capabilities || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -216,6 +214,8 @@ module.exports = function (RED) {
                 throw error;
             }
         };
+
+        const node = this;
 
         node.on('close', function (done) {
             node.status({});
@@ -251,5 +251,5 @@ module.exports = function (RED) {
         });
     }
 
-    RED.nodes.registerType('ai-agent-orchestrator', AiAgentOrchestratorNode);
+    RED.nodes.registerType('ai-orchestrator-agent', AIOrchestratorAgent);
 };

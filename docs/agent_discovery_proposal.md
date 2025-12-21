@@ -16,7 +16,7 @@ We will implement a visual "Pipeline Discovery" model where the goal picks up it
 ### 1. AI Agent (`ai-agent`) - Unchanged
 Remains the standalone expert for manual use.
 
-### 2. AI Agent Orchestrator (`ai-agent-orchestrator`) - NEW
+### 2. AI Orchestrator Agent (`ai-orchestrator-agent`) - NEW
 A pass-through node that "tags" the message with its capabilities.
 
 *   **Logic**: When a `msg` enters, the node appends its metadata (ID, Capabilities) to an array: `msg.agents`.
@@ -76,7 +76,7 @@ const result = await coder.executeTask("Fix the bug", msg);
 
 ## Implementation Phases
 
-1.  **Phase 1**: Create the `ai-agent-orchestrator` node (UI + logic).
+1.  **Phase 1**: Create the `ai-orchestrator-agent` node (UI + logic).
 2.  **Phase 2**: Add Input 2 to `ai-orchestrator` and implement the registration listener.
 3.  **Phase 3**: Update `createInitialPlan` in `ai-orchestrator` to use the registered agent list.
 4.  **Phase 4**: Documentation and example flows.

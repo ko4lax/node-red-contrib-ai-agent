@@ -1,6 +1,6 @@
 {
     "name": "node-red-contrib-ai-agent",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "AI Agent for Node-RED",
     "repository": {
         "type": "git",
@@ -28,14 +28,14 @@
     "license": "AGPL-3.0",
     "files": [
         "agent/*",
-        "agent-orchestrator/*",
-        "model/*",
-        "tool/*",
-        "tool-function/*",
-        "tool-http/*",
         "memory-file/*",
         "memory-inmem/*",
-        "orchestrator/*"
+        "model/*",
+        "orchestrator/*",
+        "orchestrator-agent/*",
+        "tool/*",
+        "tool-function/*",
+        "tool-http/*"
     ],
     "dependencies": {
         "axios": "^1.6.0",
@@ -65,7 +65,7 @@
             "ai-memory-file": "./memory-file/memory-file.js",
             "ai-memory-inmem": "./memory-inmem/memory-inmem.js",
             "ai-orchestrator": "./orchestrator/orchestrator.js",
-            "ai-agent-orchestrator": "./agent-orchestrator/agent-orchestrator.js",
+            "ai-orchestrator-agent": "./orchestrator-agent/orchestrator-agent.js",
             "ai-tool-approval": "./tool-approval/ai-tool-approval.js"
         }
     }
