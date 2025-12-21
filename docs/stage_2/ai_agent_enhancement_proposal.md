@@ -19,31 +19,27 @@ The current implementation provides a solid foundation with the following capabi
    - Configurable parameters (temperature, max tokens)
    - API key management
 
-4. **Basic Conversation Flow**:
-   - Message passing between nodes
-   - Simple conversation history
-   - Error handling for missing configuration
+4. **Autonomous Orchestration** (v0.2.0):
+   - **Goal Decomposition**: Break down complex requests into subtasks
+   - **Autonomous Loop**: Think-Act-Reflect cycles
+   - **Plan Persistence**: State management across iterations
 
-## Current Limitations
+5. **Advanced Memory Systems** (v0.1.5+):
+   - **Vector Storage**: Long-term storage with semantic search
+   - **Consolidation**: Automated summarization of histories
+   - **Context Windows**: Token-aware memory management
 
-While the basic infrastructure is in place, there are several areas for enhancement:
+### Current Limitations (Remaining)
 
-1. **State Management**:
-   - Basic conversation history without advanced context management
-   - No built-in state persistence between sessions
+1. **Performance & Scale**:
+   - Built-in evaluation metrics
+   - Detailed token usage tracking
+   - Support for high-volume database backends
 
-2. **Memory Systems**:
-   - Limited conversation history retention
-   - No support for long-term memory or knowledge management
-
-3. **Planning & Reasoning**:
-   - No built-in task decomposition
-   - Limited support for multi-step operations
-   
-4. **Advanced Features**:
-   - No built-in support for autonomous operation
-   - Limited error recovery mechanisms
-   - No built-in evaluation metrics
+2. **Advanced Autonomy**:
+   - Human-in-the-loop decision points
+   - Multi-orchestrator coordination
+   - Tool discovery mechanisms
 
 ## Proposed Enhancements
 
@@ -95,19 +91,17 @@ While the basic infrastructure is in place, there are several areas for enhancem
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Implementation Phases
+### Phase 1: Core Agent Infrastructure (Completed)
+- [x] Enhanced state management
+- [x] Basic tool system
+- [x] Improved conversation handling
+- [x] Configuration UI updates
 
-### Phase 1: Core Agent Infrastructure
-1. Enhanced state management
-2. Basic tool system
-3. Improved conversation handling
-4. Configuration UI updates
-
-### Phase 2: Advanced Capabilities
-1. Memory system implementation
-2. Planning and reasoning
-3. Advanced tool use
-4. Performance optimizations
+### Phase 2: Advanced Capabilities (Completed)
+- [x] Memory system implementation (Vector/Consolidation)
+- [x] Planning and reasoning (Orchestrator)
+- [x] Advanced tool use (Tool selection)
+- [ ] Performance optimizations (Ongoing)
 
 ### Phase 3: Maturity & Polish
 1. Comprehensive testing

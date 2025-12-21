@@ -15,7 +15,7 @@
 | **Memory** | Comprehensive: Conversation history, vector-based long-term storage, and auto-consolidation/summarization | Built-in conversation memory and vector database integrations |
 | **Tool Integration** | HTTP, JS functions, Node-RED nodes | Any n8n node can be a tool |
 | **Agent Types** | Single agent type (extensible) | Multiple types (Tools Agent, Conversational Agent, etc.) |
-| **Planning** | Basic (memory-enhanced context) | Advanced planning with ReAct framework |
+| **Planning** | Advanced (Autonomous AI Orchestrator with Think-Act-Reflect loop) | Advanced planning with ReAct framework |
 
 ## Development State
 | Aspect | Node-RED AI Agent | n8n Agent Node |
