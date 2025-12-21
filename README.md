@@ -76,6 +76,9 @@ A configuration node that initializes the conversation context with file-based p
 - **Max Messages Per Conversation**: Maximum messages per conversation history
 - **Backups**: Enable/disable automatic backups
 - **Backup Count**: Number of backups to keep
+- **Consolidation**: Threshold of messages to trigger auto-summarization
+- **Long-Term Memory**: Enable/disable vector-based storage
+- **Embedding Model**: The model used for semantic embeddings (e.g., text-embedding-ada-002)
 - **Name**: Display name for the node
 
 ### AI Model
@@ -190,10 +193,24 @@ This allows for complex conversation flows where different agents handle differe
 
 ## Advanced Features
 
-- **Tool Integration**: Extend functionality with custom tools (Function and HTTP)
-- **Context Management**: Maintain conversation history
-- **Flexible Configuration**: Customize model parameters and behavior
-- **Template Variables**: Use dynamic values in HTTP requests
+### 1. Vector Storage (Long-Term Memory)
+The `AI Memory (File)` node supports vector-based storage. When enabled, it can store embeddings of summaries or key information. This allows for **semantic search** using the `query` command.
+
+### 2. Memory Consolidation
+Automatically (or manually) summarize conversation threads to save space and maintain long-term context. After a threshold of messages is reached, the node can use an AI model to summarize the history and store it in the vector database.
+
+### 3. Memory Commands
+Memory nodes support the following commands via `msg.command`:
+- **add**: Add a message to a conversation (`msg.message` required).
+- **get**: Retrieve messages for a conversation (`msg.conversationId` optional).
+- **search**: Plain-text search across conversations (`msg.query` required).
+- **query**: Semantic (vector) search in long-term memory (`msg.query` text or vector required).
+- **consolidate**: Manually trigger summarization and long-term storage.
+- **clear**: Clear short-term, long-term, or all memory.
+- **delete**: Delete a specific conversation (`msg.conversationId` required).
+
+### 4. Template Variables
+Use dynamic values in HTTP requests via `${input.property}` syntax.
 
 ## Contributing
 

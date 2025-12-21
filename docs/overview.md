@@ -68,9 +68,11 @@ flowchart LR
     context: [
       { role: "user", content: "Hi", timestamp: "..." },
       { role: "assistant", content: "Hello!", timestamp: "..." }
-    ]
+    ],
+    longTermEnabled: true // If vector storage is enabled
   }
 }
+
 ```
 
 1. **After AI Model Node**:
@@ -131,10 +133,13 @@ flowchart LR
    - The original message payload remains unchanged
 
 3. **AI Memory Processing**
-   - Receives the message with `msg.aiagent` configuration
-   - Attaches `msg.aimemory` containing conversation context
-   - Can process commands like `add`, `get`, `search`
-   - For file-based memory, persists data to `ai-memories.json`
+   - Receives the message with `msg.aiagent` configuration.
+   - Attaches `msg.aimemory` containing conversation context.
+   - **Context Management**: Automatically maintains short-term rolling history.
+   - **Vector Storage**: (File-based only) Stores long-term memories as vector embeddings for semantic retrieval.
+   - **Consolidation**: Summarizes conversation threads to create long-term memory items.
+   - **Commands**: Processes `msg.command` (e.g., `add`, `get`, `search`, `query`, `consolidate`, `clear`, `delete`).
+   - For file-based memory, persists data to `ai-memories.json` with automatic backups.
 
 4. **AI Tool Processing**
    - Receives the message with `msg.aiagent` configuration

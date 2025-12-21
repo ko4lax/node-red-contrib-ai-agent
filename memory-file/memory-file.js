@@ -1,5 +1,68 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+
+class VectorStorage {
+    constructor(options = {}) {
+        this.vectors = [];
+        this.metadata = [];
+        this.dimensions = options.dimensions || 1536;
+    }
+
+    addItem(text, vector, metadata = {}) {
+        const id = Math.random().toString(36).substring(7);
+        this.vectors.push({ id, vector, text });
+        this.metadata.push({ id, ...metadata, timestamp: new Date().toISOString() });
+        return id;
+    }
+
+    search(queryVector, limit = 5) {
+        if (!queryVector || this.vectors.length === 0) return [];
+
+        const results = this.vectors.map((item, index) => {
+            return {
+                id: item.id,
+                text: item.text,
+                similarity: this.calculateSimilarity(queryVector, item.vector),
+                metadata: this.metadata[index]
+            };
+        });
+
+        return results
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, limit);
+    }
+
+    calculateSimilarity(vec1, vec2) {
+        if (vec1.length !== vec2.length) return 0;
+        let dotProduct = 0;
+        let normA = 0;
+        let normB = 0;
+        for (let i = 0; i < vec1.length; i++) {
+            dotProduct += vec1[i] * vec2[i];
+            normA += vec1[i] * vec1[i];
+            normB += vec2[i] * vec2[i];
+        }
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    toJSON() {
+        return {
+            vectors: this.vectors,
+            metadata: this.metadata,
+            dimensions: this.dimensions
+        };
+    }
+
+    fromJSON(data) {
+        if (data) {
+            this.vectors = data.vectors || [];
+            this.metadata = data.metadata || [];
+            this.dimensions = data.dimensions || 1536;
+        }
+    }
+}
+
 
 class SimpleFileStorage {
     constructor(options = {}) {
@@ -127,7 +190,9 @@ class SimpleMemoryManager {
         this.maxConversations = options.maxConversations || 50;
         this.maxMessagesPerConversation = options.maxMessagesPerConversation || 100;
         this.conversations = [];
+        this.longTerm = new VectorStorage();
     }
+
 
     addMessage(conversationId, message) {
         let conversation = this.conversations.find(c => c.id === conversationId);
@@ -220,14 +285,72 @@ class SimpleMemoryManager {
         return true;
     }
 
+    async consolidate(node, msg, aiConfig) {
+        if (!msg.conversationId) return { success: false, error: "No conversationId" };
+        const conversation = this.getConversation(msg.conversationId);
+        if (!conversation || conversation.messages.length < 2) return { success: false, error: "Not enough messages to consolidate" };
+
+        const textToSummarize = conversation.messages.map(m => `${m.role}: ${m.content}`).join('\n');
+
+        try {
+            const prompt = `Summarize the following conversation for long-term memory storage. Focus on key facts, decisions, and preferences. Keep it concise:\n\n${textToSummarize}`;
+
+            const response = await axios.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                {
+                    model: aiConfig.model,
+                    messages: [{ role: 'system', content: 'You are a memory consolidation assistant.' }, { role: 'user', content: prompt }]
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${aiConfig.apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            const summary = response.data.choices[0]?.message?.content?.trim();
+            if (summary) {
+                // Generate embedding for the summary
+                const embeddingResponse = await axios.post(
+                    'https://openrouter.ai/api/v1/embeddings',
+                    {
+                        model: 'text-embedding-ada-002', // Default embedding model
+                        input: summary
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${aiConfig.apiKey}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                const vector = embeddingResponse.data.data[0].embedding;
+                this.longTerm.addItem(summary, vector, {
+                    conversationId: msg.conversationId,
+                    type: 'summary',
+                    originalMessageCount: conversation.messages.length
+                });
+
+                return { success: true, summary };
+            }
+        } catch (error) {
+            node.error("Consolidation error: " + error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
     toJSON() {
         return {
             conversations: this.conversations,
+            longTerm: this.longTerm.toJSON(),
             metadata: {
-                version: '1.0',
+                version: '1.1',
                 lastUpdated: new Date().toISOString(),
                 stats: {
                     conversationCount: this.conversations.length,
+                    longTermItemCount: this.longTerm.vectors.length,
                     messageCount: this.conversations.reduce((count, conv) => count + conv.messages.length, 0)
                 }
             }
@@ -235,13 +358,17 @@ class SimpleMemoryManager {
     }
 
     fromJSON(data) {
-        if (data && data.conversations) {
-            this.conversations = data.conversations;
+        if (data) {
+            this.conversations = data.conversations || [];
+            if (data.longTerm) {
+                this.longTerm.fromJSON(data.longTerm);
+            }
         } else {
             this.conversations = [];
         }
     }
 }
+
 
 module.exports = function (RED) {
     'use strict';
@@ -257,6 +384,10 @@ module.exports = function (RED) {
         node.maxMessagesPerConversation = parseInt(config.maxMessagesPerConversation) || 100;
         node.backupEnabled = config.backupEnabled !== false;
         node.backupCount = parseInt(config.backupCount) || 3;
+        node.vectorEnabled = config.vectorEnabled === true;
+        node.embeddingModel = config.embeddingModel || 'text-embedding-ada-002';
+        node.consolidationThreshold = parseInt(config.consolidationThreshold) || 10;
+
 
         const userDir = (RED.settings && RED.settings.userDir) || process.cwd();
         const filePath = path.join(userDir, node.filename);
@@ -305,10 +436,16 @@ module.exports = function (RED) {
                     const conversationId = msg.conversationId || 'default';
                     const messages = node.memoryManager.getConversationMessages(conversationId);
 
+                    // Auto-consolidate if threshold reached
+                    if (messages.length >= node.consolidationThreshold && msg.aiagent) {
+                        node.memoryManager.consolidate(node, msg, msg.aiagent);
+                    }
+
                     msg.aimemory = {
                         type: 'file',
                         conversationId,
-                        context: messages
+                        context: messages,
+                        longTermEnabled: node.vectorEnabled
                     };
                 }
 
@@ -317,11 +454,12 @@ module.exports = function (RED) {
                 node.status({
                     fill: "green",
                     shape: "dot",
-                    text: `${node.memoryManager.conversations.length} conversations`
+                    text: `${node.memoryManager.conversations.length} convs, ${node.memoryManager.longTerm.vectors.length} long-term`
                 });
 
                 if (done) done();
             } catch (err) {
+
                 node.error("Error in memory node: " + err.message, msg);
                 node.status({ fill: "red", shape: "ring", text: "Error" });
                 if (done) done(err);
@@ -397,6 +535,7 @@ module.exports = function (RED) {
 
                 case 'clear':
                     node.memoryManager.clearAllConversations();
+                    node.memoryManager.longTerm = new VectorStorage();
 
                     msg.result = {
                         success: true,
@@ -406,10 +545,60 @@ module.exports = function (RED) {
                     await node.fileStorage.save(node.memoryManager.toJSON());
                     break;
 
+                case 'consolidate':
+                    if (!msg.aiagent) {
+                        throw new Error('AI Agent configuration (msg.aiagent) required for consolidation');
+                    }
+                    msg.result = await node.memoryManager.consolidate(node, msg, msg.aiagent);
+                    await node.fileStorage.save(node.memoryManager.toJSON());
+                    break;
+
+                case 'query':
+                    if (!node.vectorEnabled) {
+                        throw new Error('Vector storage not enabled for this node');
+                    }
+                    if (!msg.query) {
+                        throw new Error('No query text/vector provided');
+                    }
+                    if (!msg.aiagent) {
+                        throw new Error('AI Agent configuration (msg.aiagent) required for semantic search');
+                    }
+
+                    try {
+                        // Generate embedding for query if it's text
+                        let queryVector = msg.query;
+                        if (typeof msg.query === 'string') {
+                            const embeddingResponse = await axios.post(
+                                'https://openrouter.ai/api/v1/embeddings',
+                                {
+                                    model: node.embeddingModel,
+                                    input: msg.query
+                                },
+                                {
+                                    headers: {
+                                        'Authorization': `Bearer ${msg.aiagent.apiKey}`,
+                                        'Content-Type': 'application/json'
+                                    }
+                                }
+                            );
+                            queryVector = embeddingResponse.data.data[0].embedding;
+                        }
+
+                        msg.result = {
+                            success: true,
+                            operation: 'query',
+                            results: node.memoryManager.longTerm.search(queryVector, msg.limit || 5)
+                        };
+                    } catch (error) {
+                        throw new Error("Semantic search error: " + error.message);
+                    }
+                    break;
+
                 default:
                     throw new Error(`Unknown command: ${command}`);
             }
         }
+
 
         node.on('close', async function () {
             try {
