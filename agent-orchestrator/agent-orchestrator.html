@@ -14,7 +14,7 @@
             }
         },
         inputs: 1,
-        outputs: 2,
+        outputs: 1,
         icon: 'agent/ai-agent-icon.svg',
         label: function () {
             return this.name || 'AI Agent Orchestrator';
@@ -46,8 +46,7 @@
   
   <div class="form-tips" style="background: #f8f9fa; border-left: 3px solid #3b78e7; padding: 10px;">
       <p><b>Pipeline Node:</b> This node tags messages with its identity so a connected Orchestrator can use it.</p>
-      <p><b>Output 1:</b> Standard result (Solo use).</p>
-      <p><b>Output 2:</b> Discovery Pipeline (Connect to Orchestrator).</p>
+      <p><b>Output:</b> Discovery Pipeline (Connect to Orchestrator).</p>
   </div>
 </script>
 
@@ -64,7 +63,7 @@
   <h4>Usage</h4>
   <ol>
     <li>Place the node in front of an AI Orchestrator node.</li>
-    <li>Connect the 2nd output of this node to the input of the Orchestrator.</li>
+    <li>Connect the output of this node to the input of the Orchestrator.</li>
     <li>Define the agent's specific capabilities in the config.</li>
   </ol>
 </script>
