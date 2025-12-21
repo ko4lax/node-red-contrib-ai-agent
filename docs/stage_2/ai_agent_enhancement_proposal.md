@@ -19,7 +19,7 @@ The current implementation provides a solid foundation with the following capabi
    - Configurable parameters (temperature, max tokens)
    - API key management
 
-4. **Autonomous Orchestration** (v0.2.0):
+4. **Autonomous Orchestration** (v0.3.0):
    - **Goal Decomposition**: Break down complex requests into subtasks
    - **Autonomous Loop**: Think-Act-Reflect cycles
    - **Plan Persistence**: State management across iterations

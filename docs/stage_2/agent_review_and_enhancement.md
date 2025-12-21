@@ -47,7 +47,7 @@ This design is:
 
 ### Current State: Evolving to True Agency
 
-With the implementation of the **AI Orchestrator** and **Advanced Memory** (v0.2.0), the module has transitioned from an "enhanced prompt system" to a framework for true AI agency.
+With the implementation of the **AI Orchestrator** and **Advanced Memory** (v0.3.0), the module has transitioned from an "enhanced prompt system" to a framework for true AI agency.
 
 1. **Autonomous Decision Making**: (Implemented) The orchestrator now makes decisions based on plans.
 2. **Self-Reflection**: (Implemented) The reflection loop evaluates task outcomes.
@@ -219,7 +219,7 @@ async function autonomousLoop(node, msg, maxIterations = 5) {
 
 ## Architectural Comparison
 
-| Feature | v0.1.0 Implementation | v0.2.0 (Current) | Future Orchestrator |
+| Feature | v0.1.0 Implementation | v0.3.0 (Current) | Future Orchestrator |
 |---------|------------------------|----------------|-------------------|
 | **Autonomy** | None (flow-driven) | **High (Autonomous Loop)** | Full multi-agent |
 | **Memory** | Basic context | **Multi-tiered Vector** | Adaptive pruning |
