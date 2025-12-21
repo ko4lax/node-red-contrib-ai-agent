@@ -38,10 +38,12 @@ module.exports = function (RED) {
                     // Pipeline Discovery: Extract agents from upstream chain
                     const availableAgents = msg.agents || [];
 
+                    const payloadGoal = (typeof msg.payload === 'string' && msg.payload.trim()) ? msg.payload : '';
+
                     msg.orchestration = {
                         planId: 'plan-' + Date.now(),
                         iterations: 0,
-                        goal: msg.payload || node.defaultGoal,
+                        goal: payloadGoal || node.defaultGoal,
                         status: 'planning',
                         availableAgents: availableAgents,
                         history: [],
@@ -167,6 +169,7 @@ module.exports = function (RED) {
      */
     async function createInitialPlan(node, msg) {
         const goal = msg.orchestration.goal;
+        const goalText = typeof goal === 'string' ? goal : JSON.stringify(goal, null, 2);
         const strategy = node.planningStrategy;
         const agents = msg.orchestration.availableAgents || [];
         const agentManifest = agents.map(a => `- ${a.name}: [${a.capabilities.join(', ')}]`).join('\n');
@@ -175,7 +178,7 @@ module.exports = function (RED) {
         ));
         const allowedCapabilitiesJson = JSON.stringify(allowedCapabilities);
 
-        let prompt = `Goal: ${goal}\n\nAvailable Agents and their Capabilities:\n${agentManifest}\n\nDecompose this goal into a series of tasks. You MUST ONLY use capabilities provided by the available agents listed above. 
+        let prompt = `Goal: ${goalText}\n\nAvailable Agents and their Capabilities:\n${agentManifest}\n\nDecompose this goal into a series of tasks. You MUST ONLY use capabilities provided by the available agents listed above. 
 Return a JSON object with a "tasks" array. Each task should have:
 - "id": a short string id (e.g., "t1", "t2")
 - "type": the name of the REQUIRED capability from the list above
@@ -269,7 +272,10 @@ Example:
             ? '3. If you need more information or approval from a human, add a task with type "human_approval".'
             : '3. Do NOT request human approval tasks ("human_approval" is not available).';
 
-        const prompt = `Current Goal: ${msg.orchestration.goal}
+        const reflectionGoal = msg.orchestration.goal;
+        const reflectionGoalText = typeof reflectionGoal === 'string' ? reflectionGoal : JSON.stringify(reflectionGoal, null, 2);
+
+        const prompt = `Current Goal: ${reflectionGoalText}
 Current Plan: ${JSON.stringify(msg.orchestration.plan)}
 Last Task ID: ${currentTaskId}
 Last Task ${isError ? 'Error' : 'Result'}: ${JSON.stringify(isError ? msg.error : taskResult)}
