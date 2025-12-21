@@ -7,8 +7,9 @@
 ```mermaid
 flowchart LR
     A[Input Node] -->|msg| B[AI Model Node]
-    B -->|msg { aiagent: { model, apiKey, ... } }| C[AI Tool Node]
-    C -->|msg { aiagent: { ..., tools: [...] } }| D[AI Agent Node]
+    B -->|msg { aiagent }| M[AI Memory Node]
+    M -->|msg { aiagent, aimemory }| C[AI Tool Node]
+    C -->|msg { aiagent, aimemory }| D[AI Agent Node]
     D -->|processed response| E[Output Node]
 
     subgraph AI Model Node
@@ -16,13 +17,18 @@ flowchart LR
     B2 --> B3[Output: msg { aiagent: { model, apiKey, ... } }]
     end
 
+    subgraph AI Memory Node
+    M1[Input: msg { aiagent }] --> M2[Attach/Process Memory]
+    M2 --> M3[Output: msg { aiagent, aimemory }]
+    end
+
     subgraph AI Tool Node
-    C1[Input: msg { aiagent }] --> C2[Add Tool Definition]
-    C2 --> C3[Output: msg { aiagent: { ..., tools: [tool1, tool2, ...] } }]
+    C1[Input: msg { aiagent, aimemory }] --> C2[Add Tool Definition]
+    C2 --> C3[Output: msg { aiagent, aimemory, tools }]
     end
 
     subgraph AI Agent Node
-    D1[Input: msg { aiagent: { ..., tools } }] --> D2[Process with AI and Tools]
+    D1[Input: msg { aiagent, aimemory, tools }] --> D2[Process with AI and Tools]
     D2 --> D3[Generate Response]
     D3 --> D4[Output: Response]
     end
@@ -39,48 +45,29 @@ flowchart LR
   
   // AI Agent configuration (from AI Model node)
   aiagent: {
-    // Model configuration
     model: "openai/gpt-3.5-turbo",
     apiKey: "your-api-key",
     temperature: 0.7,
     maxTokens: 1000,
     
-    // Tools added by AI Tool nodes
     tools: [
-      // Example: HTTP Tool
       {
         name: "get_weather",
         description: "Gets the current weather for a location",
         type: "http",
-        config: {
-          method: "GET",
-          url: "https://api.weatherapi.com/v1/current.json?key=YOUR_KEY&q=${location}",
-          headers: {
-            "Content-Type": "application/json"
-          }
-        },
-        execute: async (input) => { /* HTTP request implementation */ }
-      },
-      
-      // Example: JavaScript Function Tool
-      {
-        name: "get_todays_date",
-        description: "Returns the current date in ISO format",
-        type: "function",
-        execute: async () => new Date().toISOString().split('T')[0]
-      },
-      
-      // Example: Node-RED Node Tool
-      {
-        name: "database_query",
-        description: "Runs a query against the configured database",
-        type: "node-red",
-        config: {
-          nodeId: "db-node-id",
-          property: "query"
-        },
-        execute: async (query) => { /* Node-RED node communication */ }
+        config: { /* ... */ },
+        execute: async (input) => { /* ... */ }
       }
+    ]
+  },
+
+  // AI Memory context (from AI Memory node)
+  aimemory: {
+    type: "file",
+    conversationId: "default",
+    context: [
+      { role: "user", content: "Hi", timestamp: "..." },
+      { role: "assistant", content: "Hello!", timestamp: "..." }
     ]
   }
 }
@@ -143,7 +130,13 @@ flowchart LR
      ```
    - The original message payload remains unchanged
 
-3. **AI Tool Processing**
+3. **AI Memory Processing**
+   - Receives the message with `msg.aiagent` configuration
+   - Attaches `msg.aimemory` containing conversation context
+   - Can process commands like `add`, `get`, `search`
+   - For file-based memory, persists data to `ai-memories.json`
+
+4. **AI Tool Processing**
    - Receives the message with `msg.aiagent` configuration
    - Adds tool definitions to `msg.aiagent.tools` array
    - Each tool includes a name, description, and execute function

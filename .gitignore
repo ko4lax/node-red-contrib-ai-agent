@@ -1,3 +1,8 @@
 /.vscode/
 /nbproject/
 /node_modules/
+test-memories.json
+test-memories.json.*
+ai-memories.json
+ai-memories.json.*
+

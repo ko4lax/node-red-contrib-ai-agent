@@ -11,7 +11,11 @@
                 validate: function(v) {
                     return v.length > 0;
                 }
-            }
+            },
+            maxConversations: { value: 50, validate: RED.validators.number() },
+            maxMessagesPerConversation: { value: 100, validate: RED.validators.number() },
+            backupEnabled: { value: true },
+            backupCount: { value: 3, validate: RED.validators.number() }
         },
         inputs: 1,
         outputs: 1,
@@ -42,6 +46,23 @@
     <div class="form-row">
         <label for="node-input-filename"><i class="fa fa-file"></i> Filename</label>
         <input type="text" id="node-input-filename" placeholder="ai-memories.json">
+    </div>
+    <div class="form-row">
+        <label for="node-input-maxConversations"><i class="fa fa-list"></i> Max Conversations</label>
+        <input type="number" id="node-input-maxConversations" placeholder="50">
+    </div>
+    <div class="form-row">
+        <label for="node-input-maxMessagesPerConversation"><i class="fa fa-commenting"></i> Max Messages/Conv</label>
+        <input type="number" id="node-input-maxMessagesPerConversation" placeholder="100">
+    </div>
+    <div class="form-row">
+        <label for="node-input-backupEnabled"><i class="fa fa-shield"></i> Backups</label>
+        <input type="checkbox" id="node-input-backupEnabled" style="display:inline-block; width:auto; vertical-align:top;">
+        <label for="node-input-backupEnabled" style="width: auto;">Enable automatic backups</label>
+    </div>
+    <div class="form-row" id="backupCount-row">
+        <label for="node-input-backupCount"><i class="fa fa-history"></i> Backup Count</label>
+        <input type="number" id="node-input-backupCount" placeholder="3">
     </div>
     <div class="form-tips">
         <p>Memories will be stored in Node-RED's user directory.</p>

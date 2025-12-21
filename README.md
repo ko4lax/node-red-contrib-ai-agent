@@ -71,8 +71,11 @@ A configuration node that initializes the conversation context in memory. The ag
 A configuration node that initializes the conversation context with file-based persistence. The agent node uses this configuration to manage the conversation context across restarts.
 
 **Properties:**
-- **Max Items**: Maximum number of conversation turns to keep
-- **File Path**: Path to store the conversation history
+- **Filename**: Path to store the memory file (relative to Node-RED user directory)
+- **Max Conversations**: Maximum number of conversations to store
+- **Max Messages Per Conversation**: Maximum messages per conversation history
+- **Backups**: Enable/disable automatic backups
+- **Backup Count**: Number of backups to keep
 - **Name**: Display name for the node
 
 ### AI Model
