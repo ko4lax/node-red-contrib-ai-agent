@@ -218,7 +218,9 @@ module.exports = function (RED) {
 
                 const inputText = typeof taskInput === 'string' ? taskInput : JSON.stringify(taskInput);
                 const { messages, userMessage } = preparePrompt(node, msg, inputText);
+                node.warn("Messages: " + JSON.stringify(messages));
                 const response = await callAI(node, msg.aiagent, messages);
+                node.warn("Response: " + response);
 
                 if (msg.aimemory && userMessage) {
                     updateContext(msg, userMessage, response);

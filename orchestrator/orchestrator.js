@@ -157,7 +157,9 @@ Return a JSON object with a "tasks" array. Each task should have:
 }`;
 
         try {
+            node.warn("Prompt: " + prompt);
             const response = await callAI(msg.aiagent, prompt, "You are an AI Orchestrator that creates non-linear plans with dependencies.");
+            node.warn("Response: " + response);
             const planData = JSON.parse(extractJson(response));
             msg.orchestration.plan = planData;
             msg.orchestration.status = 'executing';
