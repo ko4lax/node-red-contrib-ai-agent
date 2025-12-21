@@ -238,8 +238,8 @@ module.exports = function (RED) {
                     type: 'agent'
                 });
 
-                // Pass through to Output 2 (Pipeline)
-                send([null, msg]);
+                // Pass through to the discovery pipeline
+                send(msg);
                 node.status({ fill: 'green', shape: 'dot', text: 'ready' });
 
             } catch (error) {
