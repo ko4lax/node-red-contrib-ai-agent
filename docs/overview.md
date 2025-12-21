@@ -213,10 +213,11 @@ If the AI Agent node receives a message without the required `aiagent` configura
 
 ## Using AI Tool Nodes
 
-AI Tool nodes allow you to extend the AI Agent's capabilities by adding custom tools. There are two types of AI Tool nodes:
+AI Tool nodes allow you to extend the AI Agent's capabilities by adding custom tools. There are three types of AI Tool nodes:
 
 1. **AI Tool Function**: Create custom JavaScript functions that the AI can call
 2. **AI Tool HTTP**: Create HTTP request tools that the AI can use to interact with external APIs
+3. **AI Tool Approval**: Create approval tools that pause execution for human verification
 
 Here are examples of how to use each type:
 
@@ -469,8 +470,19 @@ The AI Agent will detect that it should use the `get_weather` tool, extract "Lon
 - **AI Model Node**: Configure your preferred model and settings
 - **AI Tool Function Node**: Create custom tools with JavaScript functions
 - **AI Tool HTTP Node**: Create tools that make HTTP requests to external APIs
+- **AI Tool Approval Node**: Create tools for human-in-the-loop verification
 - **AI Agent Node**: Set the system prompt and response format
 - **Error Handling**: Always include a catch node to handle potential errors
+
+## Human-in-the-loop Processing
+The `AI Tool Approval` node enables a powerful pattern where the AI can be granted autonomy but still require human oversight for sensitive actions.
+
+### How it works:
+1. **Tool Definition**: The node adds a tool to `msg.aiagent.tools`.
+2. **AI Action**: When the AI decides to use the tool, it calls the `execute` function.
+3. **Execution Pause**: The node sends a message out of its **second output** and returns a `Promise` to the Agent.
+4. **Human Response**: Outside of the agent loop, a human receives a notification (e.g., via Email, Dashboard, or Slack) and provides a response back into the input of the same `AI Tool Approval` node.
+5. **Execution Resume**: The node matches the incoming response with the pending promise and returns the human's input to the AI Agent.
 
 ## Template Variables in HTTP Tools
 

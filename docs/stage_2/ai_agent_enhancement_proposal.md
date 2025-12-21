@@ -29,6 +29,10 @@ The current implementation provides a solid foundation with the following capabi
    - **Consolidation**: Automated summarization of histories
    - **Context Windows**: Token-aware memory management
 
+6. **Human-in-the-loop** (v0.4.0):
+   - **Decision Points**: Pause execution for human approval
+   - **Interactive Tools**: Request information from users during execution
+
 ### Current Limitations (Remaining)
 
 1. **Performance & Scale**:
@@ -37,7 +41,6 @@ The current implementation provides a solid foundation with the following capabi
    - Support for high-volume database backends
 
 2. **Advanced Autonomy**:
-   - Human-in-the-loop decision points
    - Multi-orchestrator coordination
    - Tool discovery mechanisms
 
@@ -102,6 +105,7 @@ The current implementation provides a solid foundation with the following capabi
 - [x] Planning and reasoning (Orchestrator)
 - [x] Advanced tool use (Tool selection)
 - [x] Performance optimizations (Iteration tracking and efficient retrieval)
+- [x] Human-in-the-loop decision points (v0.4.0)
 
 ### Phase 3: Maturity & Polish
 1. Comprehensive testing

@@ -20,7 +20,7 @@
 ## Development State
 | Aspect | Node-RED AI Agent | n8n Agent Node |
 |--------|-------------------|----------------|
-| **Maturity** | Rapidly evolving; powerful orchestration in v0.3.0 | Mature, production-ready |
+| **Maturity** | Rapidly evolving; powerful orchestration in v0.4.0 | Mature, production-ready |
 | **Documentation** | Comprehensive (Overview, README, Proposals) | Industry standard |
 | **Community** | Growing community | Large, establish community |
 
@@ -46,4 +46,4 @@
 4. **For enterprise use**: n8n might be more suitable due to its maturity, although the Node-RED AI Agent is rapidly closing the gap in orchestration capabilities.
 
 ## Conclusion
-With the release of v0.3.0, the Node-RED AI Agent has reached feature parity with many advanced orchestration frameworks, offering a unique blend of Node-RED's flexibility and powerful AI agency. It is the ideal choice for developers looking to build complex, self-reflecting AI loops directly within their Node-RED flows.
+With the release of v0.4.0, the Node-RED AI Agent has reached feature parity with many advanced orchestration frameworks, offering a unique blend of Node-RED's flexibility and powerful AI agency. It is the ideal choice for developers looking to build complex, self-reflecting AI loops directly within their Node-RED flows.

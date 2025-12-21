@@ -1,0 +1,59 @@
+<script type="text/javascript">
+    RED.nodes.registerType('ai-tool-approval', {
+        category: 'AI Agent',
+        color: '#FFCC00',
+        defaults: {
+            name: { value: "" },
+            toolName: { value: "human_approval", required: true },
+            description: { value: "Ask a human for approval or information.", required: true }
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["agent flow", "approval requests"],
+        icon: "font-awesome/fa-user-check",
+        label: function () {
+            return this.name || this.toolName || "Approval Tool";
+        },
+        paletteLabel: "approval tool"
+    });
+</script>
+
+<script type="text/html" data-template-name="ai-tool-approval">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-toolName"><i class="fa fa-code"></i> Tool Name</label>
+        <input type="text" id="node-input-toolName" placeholder="human_approval">
+    </div>
+    <div class="form-row">
+        <label for="node-input-description"><i class="fa fa-comment"></i> Description</label>
+        <textarea id="node-input-description" rows="3" style="width:70%;" placeholder="Request human intervention..."></textarea>
+    </div>
+    <div class="form-tips">
+        <b>Tip:</b> This node creates a tool that the AI can call to pause execution and wait for human input.
+        Link the second output to a UI or notification node, and feed the response back into the input of this node.
+    </div>
+</script>
+
+<script type="text/html" data-help-name="ai-tool-approval">
+    <p>Registers a human-in-the-loop approval tool with the AI Agent.</p>
+    
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Tool Name <span class="property-type">string</span></dt>
+        <dd>The name the LLM will see (e.g., 'approve_purchase').</dd>
+        <dt>Description <span class="property-type">string</span></dt>
+        <dd>Guidance for the LLM on when and why to use this tool.</dd>
+    </dl>
+
+    <h3>Functionality</h3>
+    <p>When the AI calls this tool:</p>
+    <ol>
+        <li>The Agent's execution pauses.</li>
+        <li>A request message is sent out of the <b>second output</b>.</li>
+        <li>The node waits for an input message containing the human's response in <code>msg.payload</code>.</li>
+        <li>Once received, the Agent resumes with the human's input as the tool's result.</li>
+    </ol>
+</script>

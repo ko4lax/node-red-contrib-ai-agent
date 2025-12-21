@@ -91,7 +91,9 @@ Return a JSON object with a "tasks" array. Each task should have:
 - "input": detailed instruction for the agent
 - "status": "pending"
 - "priority": a number (1-10, default 5)
-- "dependsOn": an array of IDs of tasks that must be completed BEFORE this task can start (empty array if none)`;
+- "dependsOn": an array of IDs of tasks that must be completed BEFORE this task can start (empty array if none)
+
+Note: You can use "human_approval" as a task type if you need a human to verify something before proceeding.`;
 
         if (strategy === 'advanced') {
             prompt += `\n\nThink about parallel execution. Group related tasks and identify bottlenecks. Ensure dependencies are logical.`;
@@ -148,7 +150,8 @@ Last Task ${isError ? 'Error' : 'Result'}: ${JSON.stringify(isError ? msg.error 
 Evaluate the progress. 
 1. If the last task failed, propose a recovery strategy (retry, alternative task, or fail the goal).
 2. If the goal is achieved, set status to "completed".
-3. Otherwise, continue execution. You may refine the plan by adding, removing, or modifying tasks.
+3. If you need more information or approval from a human, add a task with type "human_approval".
+4. Otherwise, continue execution. You may refine the plan by adding, removing, or modifying tasks.
 
 Return a JSON object:
 {

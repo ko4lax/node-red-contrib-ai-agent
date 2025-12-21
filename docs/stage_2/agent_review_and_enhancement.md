@@ -214,12 +214,12 @@ async function autonomousLoop(node, msg, maxIterations = 5) {
 
 2. **Autonomous Execution**
    - [x] Add iterative execution loops
-   - [ ] Implement decision points for human intervention (Planned for v0.3.0)
+   - [x] Implement decision points for human intervention (v0.4.0)
    - [x] Create progress monitoring and reporting
 
 ## Architectural Comparison
 
-| Feature | v0.1.0 Implementation | v0.3.0 (Current) | Future Orchestrator |
+| Feature | v0.1.0 Implementation | v0.4.0 (Current) | Future Orchestrator |
 |---------|------------------------|----------------|-------------------|
 | **Autonomy** | None (flow-driven) | **High (Autonomous Loop)** | Full multi-agent |
 | **Memory** | Basic context | **Multi-tiered Vector** | Adaptive pruning |

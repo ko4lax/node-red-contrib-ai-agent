@@ -126,10 +126,21 @@ Creates an HTTP request tool that can be used by the AI Agent to make external A
 - **Headers**: JSON object of headers to include in the request
 - **Body**: Content to send in the request body
 
+Example: `https://api.example.com/users/${input.userId}`
+
 **Template Variables:**
 You can use template variables in the URL, headers, and body to reference properties from the input object that the AI provides when calling the tool.
 
-Example: `https://api.example.com/users/${input.userId}`
+### AI Tool Approval
+Creates an approval tool that can be used by the AI Agent to request human intervention. When called, the agent's execution pauses until a human provides a response.
+
+**Properties:**
+- **Name**: Display name for the node
+- **Tool Name**: Name of the tool (used by the AI to identify the tool)
+- **Description**: Description of what the tool does (e.g., "Request approval for payments")
+
+**Output 2 (Approval Request):** Sends a message with `msg.payload` containing the human question and `msg.approvalId` to be used for the response.
+
 
 ## Example: Basic Usage
 

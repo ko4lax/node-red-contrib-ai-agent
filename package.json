@@ -1,6 +1,6 @@
 {
     "name": "node-red-contrib-ai-agent",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "AI Agent for Node-RED",
     "repository": {
         "type": "git",
@@ -62,7 +62,8 @@
             "ai-tool-http": "./tool-http/ai-tool-http.js",
             "ai-memory-file": "./memory-file/memory-file.js",
             "ai-memory-inmem": "./memory-inmem/memory-inmem.js",
-            "ai-orchestrator": "./orchestrator/orchestrator.js"
+            "ai-orchestrator": "./orchestrator/orchestrator.js",
+            "ai-tool-approval": "./tool-approval/ai-tool-approval.js"
         }
     }
 }
